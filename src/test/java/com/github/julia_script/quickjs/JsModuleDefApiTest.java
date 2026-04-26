@@ -30,9 +30,7 @@ class JsModuleDefApiTest {
 
     @Test
     void initAndAddExportWork() {
-        if (!hasModuleApi()) {
-            return;
-        }
+        requireModuleApi();
         JsModuleDef module = context.newCModule("test_module", (initContext, moduleDef) -> {
             JsValue value = initContext.eval(
                     "42",
@@ -46,9 +44,7 @@ class JsModuleDefApiTest {
 
     @Test
     void getNameReturnsModuleName() {
-        if (!hasModuleApi()) {
-            return;
-        }
+        requireModuleApi();
         JsModuleDef module = context.newCModule("my_module", (initContext, moduleDef) -> true);
         assertThat(module.addExport(context, "dummy")).isTrue();
 
@@ -60,9 +56,10 @@ class JsModuleDefApiTest {
 
     @Test
     void fullImportViaLoaderWorks() {
-        if (!hasModuleApi() || runtime.nativeApi.setModuleLoaderFuncHandle == null) {
-            return;
-        }
+        requireModuleApi();
+        assertThat(runtime.nativeApi.setModuleLoaderFuncHandle)
+                .as("JS_SetModuleLoaderFunc binding")
+                .isNotNull();
         runtime.setModuleLoaderFunc(null, (loadContext, moduleName) -> {
             if (!moduleName.equals("test_module")) {
                 return null;
@@ -98,18 +95,58 @@ class JsModuleDefApiTest {
     }
 
     @Test
-    void getImportMetaAndNamespaceWork() {
-        if (!hasModuleApi() || runtime.nativeApi.setModuleLoaderFuncHandle == null) {
-            return;
+    void moduleNormalizeRewritesSpecifierBeforeLoader() {
+        requireModuleApi();
+        assertThat(runtime.nativeApi.setModuleLoaderFuncHandle)
+                .as("JS_SetModuleLoaderFunc binding")
+                .isNotNull();
+        assertThat(runtime.nativeApi.jsMallocHandle).as("js_malloc binding").isNotNull();
+        runtime.setModuleLoaderFunc(
+                (c, base, name) -> "alias_module".equals(name) ? "test_module" : name,
+                (loadContext, moduleName) -> {
+                    if (!moduleName.equals("test_module")) {
+                        return null;
+                    }
+                    JsModuleDef module = loadContext.newCModule(moduleName, (initContext, moduleDef) -> {
+                        JsValue value = JsValue.newInt32(initContext, 456);
+                        return moduleDef.setExport(initContext, "value", value);
+                    });
+                    if (!module.addExport(loadContext, "value")) {
+                        return null;
+                    }
+                    return module;
+                });
+
+        String source = "import { value } from \"alias_module\";\n"
+                + "globalThis.aliasNormResult = value;";
+        try (JsValue result = context.eval(
+                source,
+                source.getBytes(StandardCharsets.UTF_8).length,
+                "<test>",
+                EvalFlags.TYPE_MODULE)) {
+            assertThat(result.isException()).isFalse();
         }
+
+        try (JsValue global = context.getGlobalObject();
+                JsValue aliasNormResult = global.getPropertyStr("aliasNormResult")) {
+            assertThat(aliasNormResult.toInt32()).isEqualTo(456);
+        }
+    }
+
+    @Test
+    void getImportMetaAndNamespaceWork() {
+        requireModuleApi();
+        assertThat(runtime.nativeApi.setModuleLoaderFuncHandle)
+                .as("JS_SetModuleLoaderFunc binding")
+                .isNotNull();
         AtomicReference<JsModuleDef> capturedModule = new AtomicReference<>();
         runtime.setModuleLoaderFunc(null, (loadContext, moduleName) -> {
             if (!moduleName.equals("ns_test")) {
                 return null;
             }
             JsModuleDef module = loadContext.newCModule(moduleName, (initContext, moduleDef) -> {
-                JsValue foo = initContext.eval("10", 2, "<module-init>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
-                JsValue bar = initContext.eval("20", 2, "<module-init>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+                JsValue foo = JsValue.newInt32(initContext, 10);
+                JsValue bar = JsValue.newInt32(initContext, 20);
                 return moduleDef.setExport(initContext, "foo", foo)
                         && moduleDef.setExport(initContext, "bar", bar);
             });
@@ -128,6 +165,7 @@ class JsModuleDefApiTest {
                 "<test>",
                 EvalFlags.TYPE_MODULE)) {
             assertThat(result.isException()).isFalse();
+
         }
 
         JsModuleDef module = capturedModule.get();
@@ -151,5 +189,13 @@ class JsModuleDefApiTest {
                 && context.nativeApi.getImportMetaHandle != null
                 && context.nativeApi.getModuleNameHandle != null
                 && context.nativeApi.getModuleNamespaceHandle != null;
+    }
+
+    private void requireModuleApi() {
+        assertThat(hasModuleApi())
+                .as(
+                        "QuickJS module API symbols must be linked (newCModule, addModuleExport, setModuleExport,"
+                                + " getImportMeta, getModuleName, getModuleNamespace)")
+                .isTrue();
     }
 }

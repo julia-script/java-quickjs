@@ -181,6 +181,8 @@ public final class QuickJsNative {
     final MethodHandle getModuleNameHandle;
     final MethodHandle getModuleNamespaceHandle;
     final MethodHandle setModuleLoaderFuncHandle;
+    /** QuickJS heap; required to return strings from {@code JSModuleNormalizeFunc}. */
+    final MethodHandle jsMallocHandle;
     final MethodHandle newBoolHandle;
     final MethodHandle newInt32Handle;
     final MethodHandle newUint32Handle;
@@ -1189,6 +1191,14 @@ public final class QuickJsNative {
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS));
+        this.jsMallocHandle = downcallOptional(
+                linker,
+                lookup,
+                "js_malloc",
+                FunctionDescriptor.of(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG));
         this.newBoolHandle = downcallOptional(
                 linker,
                 lookup,

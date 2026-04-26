@@ -1,5 +1,7 @@
 package com.github.julia_script.quickjs;
 
+import org.jspecify.annotations.Nullable;
+
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
@@ -7,11 +9,16 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.nio.charset.StandardCharsets;
 
 public final class JsRuntime implements AutoCloseable {
     @FunctionalInterface
     public interface ModuleNormalizeFunction {
-        MemorySegment normalize(JsContext context, String moduleBaseName, String moduleName);
+        /**
+         * Returns the normalized module specifier for QuickJS, or {@code null} for the
+         * native {@code NULL} return (exception / failure semantics per {@code JSModuleNormalizeFunc}).
+         */
+        @Nullable String normalize(JsContext context, String moduleBaseName, String moduleName);
     }
 
     @FunctionalInterface
@@ -121,10 +128,20 @@ public final class JsRuntime implements AutoCloseable {
         }
     }
 
-    public void setModuleLoaderFunc(ModuleNormalizeFunction moduleNormalize, ModuleLoaderFunction moduleLoader) {
+
+    /**
+     * Installs module normalize and loader callbacks for this runtime.
+     * Either callback may be {@code null} to omit that hook (QuickJS allows a null normalize or loader stub).
+     */
+    public void setModuleLoaderFunc(
+            @Nullable ModuleNormalizeFunction moduleNormalize, @Nullable ModuleLoaderFunction moduleLoader) {
         ensureOpen();
         if (nativeApi.setModuleLoaderFuncHandle == null) {
             throw new UnsupportedOperationException("JS_SetModuleLoaderFunc is not available in this QuickJS build");
+        }
+        if (moduleNormalize != null && nativeApi.jsMallocHandle == null) {
+            throw new UnsupportedOperationException(
+                    "js_malloc is not available; a custom module normalizer requires js_malloc for the returned specifier");
         }
         moduleNormalizeFunction = moduleNormalize;
         moduleLoaderFunction = moduleLoader;
@@ -225,8 +242,11 @@ public final class JsRuntime implements AutoCloseable {
         JsContext context = new JsContext(nativeApi, callbackContext, true);
         String moduleBaseName = cStringToJava(callbackModuleBaseName);
         String moduleName = cStringToJava(callbackModuleName);
-        MemorySegment normalized = moduleNormalizeFunction.normalize(context, moduleBaseName, moduleName);
-        return normalized == null ? MemorySegment.NULL : normalized;
+        String normalized = moduleNormalizeFunction.normalize(context, moduleBaseName, moduleName);
+        if (normalized == null) {
+            return MemorySegment.NULL;
+        }
+        return mallocUtf8ZString(callbackContext, normalized);
     }
 
     @SuppressWarnings("unused")
@@ -248,6 +268,29 @@ public final class JsRuntime implements AutoCloseable {
             return "";
         }
         return ptr.reinterpret(Long.MAX_VALUE).getString(0);
+    }
+
+    /**
+     * Allocates a NUL-terminated UTF-8 string with QuickJS {@code js_malloc} so the runtime can take ownership.
+     */
+    private MemorySegment mallocUtf8ZString(MemorySegment ctx, String text) {
+        byte[] utf8 = text.getBytes(StandardCharsets.UTF_8);
+        long sizeWithNul = (long) utf8.length + 1L;
+        MemorySegment allocated;
+        try {
+            allocated = (MemorySegment) nativeApi.jsMallocHandle.invokeExact(ctx, sizeWithNul);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call js_malloc", throwable);
+        }
+        if (allocated.equals(MemorySegment.NULL)) {
+            return MemorySegment.NULL;
+        }
+        MemorySegment writable = allocated.reinterpret(sizeWithNul);
+        if (utf8.length > 0) {
+            MemorySegment.copy(MemorySegment.ofArray(utf8), 0L, writable, 0L, utf8.length);
+        }
+        writable.set(ValueLayout.JAVA_BYTE, (long) utf8.length, (byte) 0);
+        return allocated;
     }
 
     private static MethodHandle bindInstanceDispatch(String methodName, MethodType methodType) {

@@ -1927,7 +1927,7 @@ public final class JsValue implements AutoCloseable {
         }
     }
 
-    public Optional<MemorySegment> getOpaque2(JsContext context, int classId) {
+    public Optional<MemorySegment> getOpaque(JsContext context, int classId) {
         try {
             MemorySegment ptr = (MemorySegment) nativeApi.getOpaque2Handle.invokeExact(context.contextPtr, value, classId);
             if (ptr.equals(MemorySegment.NULL)) {

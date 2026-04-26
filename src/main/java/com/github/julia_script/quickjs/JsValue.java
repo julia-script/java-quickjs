@@ -1325,7 +1325,7 @@ public final class JsValue implements AutoCloseable {
         }
     }
 
-    public JsValue getProperty(int atom) {
+    public JsValue getPropertyAtom(int atom) {
         try {
             MemorySegment result = (MemorySegment) nativeApi.getPropertyHandle.invokeExact(
                     (SegmentAllocator) nativeApi.arena,
@@ -1336,6 +1336,22 @@ public final class JsValue implements AutoCloseable {
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_GetProperty", throwable);
         }
+    }
+
+    public JsValue getProperty(Atom atom) {
+        return getPropertyAtom(atom.value());
+    }
+
+    public JsValue getProperty(String name) {
+        return getPropertyStr(name);
+    }
+
+    public JsValue getProperty(int index) {
+        return getPropertyUint32(index);
+    }
+
+    public JsValue getProperty(long index) {
+        return getPropertyInt64(index);
     }
 
     public JsValue getPropertyStr(String name) {
@@ -1378,7 +1394,7 @@ public final class JsValue implements AutoCloseable {
         }
     }
 
-    public void setProperty(int atom, JsValue val) {
+    public void setPropertyAtom(int atom, JsValue val) {
         try {
             int ret = (int) nativeApi.setPropertyHandle.invokeExact(contextPtr, value, atom, val.value);
             if (ret < 0) {
@@ -1387,6 +1403,22 @@ public final class JsValue implements AutoCloseable {
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_SetProperty", throwable);
         }
+    }
+
+    public void setProperty(Atom atom, JsValue val) {
+        setPropertyAtom(atom.value(), val);
+    }
+
+    public void setProperty(String name, JsValue val) {
+        setPropertyStr(name, val);
+    }
+
+    public void setProperty(int index, JsValue val) {
+        setPropertyUint32(index, val);
+    }
+
+    public void setProperty(long index, JsValue val) {
+        setPropertyInt64(index, val);
     }
 
     public void setPropertyStr(String name, JsValue val) {

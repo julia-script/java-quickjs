@@ -38,7 +38,7 @@ class JsValuePropertiesTest extends QuickJsIntegrationTestBase {
             assertThat(defined).isTrue();
 
             try (Atom atom = Atom.ofString(context, "k")) {
-                try (JsValue fetched = obj.getProperty(atom.value())) {
+                try (JsValue fetched = obj.getProperty(atom)) {
                     assertThat(fetched.toJavaString()).isEqualTo("x");
                 }
 

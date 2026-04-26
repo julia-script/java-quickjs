@@ -81,6 +81,283 @@ public final class JsValue implements AutoCloseable {
         this.value = value;
     }
 
+    public static JsValue newBool(JsContext context, boolean input) {
+        requireSupported(context.nativeApi.newBoolHandle, "JS_NewBool");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newBoolHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    input ? 1 : 0);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewBool", throwable);
+        }
+    }
+
+    public static JsValue newInt32(JsContext context, int input) {
+        requireSupported(context.nativeApi.newInt32Handle, "JS_NewInt32");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newInt32Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    input);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewInt32", throwable);
+        }
+    }
+
+    public static JsValue newInt64(JsContext context, long input) {
+        requireSupported(context.nativeApi.newInt64Handle, "JS_NewInt64");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newInt64Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    input);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewInt64", throwable);
+        }
+    }
+
+    public static JsValue newFloat64(JsContext context, double input) {
+        requireSupported(context.nativeApi.newFloat64Handle, "JS_NewFloat64");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newFloat64Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    input);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewFloat64", throwable);
+        }
+    }
+
+    public static JsValue newBigInt64(JsContext context, long input) {
+        requireSupported(context.nativeApi.newBigInt64Handle, "JS_NewBigInt64");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newBigInt64Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    input);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewBigInt64", throwable);
+        }
+    }
+
+    public static JsValue newBigUint64(JsContext context, long input) {
+        requireSupported(context.nativeApi.newBigUint64Handle, "JS_NewBigUint64");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newBigUint64Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    input);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewBigUint64", throwable);
+        }
+    }
+
+    public static JsValue newString(JsContext context, String input) {
+        requireSupported(context.nativeApi.newStringHandle, "JS_NewString");
+        MemorySegment inputC = context.nativeApi.arena.allocateFrom(input);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newStringHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    inputC);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewString", throwable);
+        }
+    }
+
+    public static JsValue newStringLen(JsContext context, String input) {
+        requireSupported(context.nativeApi.newStringLenHandle, "JS_NewStringLen");
+        MemorySegment inputC = context.nativeApi.arena.allocateFrom(input);
+        long inputLen = input.getBytes(StandardCharsets.UTF_8).length;
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newStringLenHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    inputC,
+                    inputLen);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewStringLen", throwable);
+        }
+    }
+
+    public static JsValue newObject(JsContext context) {
+        requireSupported(context.nativeApi.newObjectHandle, "JS_NewObject");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newObjectHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewObject", throwable);
+        }
+    }
+
+    public static JsValue newObjectProto(JsContext context, JsValue proto) {
+        requireSupported(context.nativeApi.newObjectProtoHandle, "JS_NewObjectProto");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newObjectProtoHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    proto.value);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewObjectProto", throwable);
+        }
+    }
+
+    public static JsValue newObjectClass(JsContext context, int classId) {
+        requireSupported(context.nativeApi.newObjectClassHandle, "JS_NewObjectClass");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newObjectClassHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    classId);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewObjectClass", throwable);
+        }
+    }
+
+    public static JsValue newArray(JsContext context) {
+        requireSupported(context.nativeApi.newArrayHandle, "JS_NewArray");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newArrayHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewArray", throwable);
+        }
+    }
+
+    public static JsValue newArrayFrom(JsContext context, JsValue[] values) {
+        JsValue array = newArray(context);
+        try {
+            for (int i = 0; i < values.length; i++) {
+                array.setPropertyUint32(i, values[i]);
+            }
+            return array;
+        } catch (RuntimeException exception) {
+            array.close();
+            throw exception;
+        }
+    }
+
+    public static JsValue newDate(JsContext context, double epochMs) {
+        requireSupported(context.nativeApi.newDateHandle, "JS_NewDate");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newDateHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    epochMs);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewDate", throwable);
+        }
+    }
+
+    public static JsValue newSymbol(JsContext context, String description, boolean global) {
+        requireSupported(context.nativeApi.newSymbolHandle, "JS_NewSymbol");
+        MemorySegment descriptionC = context.nativeApi.arena.allocateFrom(description);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newSymbolHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    descriptionC,
+                    global);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewSymbol", throwable);
+        }
+    }
+
+    public static JsValue newError(JsContext context) {
+        requireSupported(context.nativeApi.newErrorHandle, "JS_NewError");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newErrorHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewError", throwable);
+        }
+    }
+
+    public static JsValue nullValue(JsContext context) {
+        return context.eval("null", "<inline>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+    }
+
+    public static JsValue undefinedValue(JsContext context) {
+        return context.eval("undefined", "<inline>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+    }
+
+    public static JsValue uninitializedValue(JsContext context) {
+        return context.eval("void 0", "<inline>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+    }
+
+    public static JsValue newArrayBufferCopy(JsContext context, byte[] buffer) {
+        requireSupported(context.nativeApi.newArrayBufferCopyHandle, "JS_NewArrayBufferCopy");
+        MemorySegment bufferSegment = context.nativeApi.arena.allocateFrom(ValueLayout.JAVA_BYTE, buffer);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newArrayBufferCopyHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    bufferSegment,
+                    (long) buffer.length);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewArrayBufferCopy", throwable);
+        }
+    }
+
+    public static JsValue newTypedArray(JsContext context, TypedArrayType type, JsValue[] args) {
+        requireSupported(context.nativeApi.newTypedArrayHandle, "JS_NewTypedArray");
+        MemorySegment argsSegment = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT, args.length);
+        long stride = QuickJsNative.JS_VALUE_LAYOUT.byteSize();
+        for (int i = 0; i < args.length; i++) {
+            MemorySegment slot = argsSegment.asSlice((long) i * stride, stride);
+            MemorySegment.copy(args[i].value(), 0, slot, 0, stride);
+        }
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newTypedArrayHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    type.value(),
+                    args.length,
+                    argsSegment);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewTypedArray", throwable);
+        }
+    }
+
+    public static JsPromiseCapability newPromiseCapability(JsContext context) {
+        requireSupported(context.nativeApi.newPromiseCapabilityHandle, "JS_NewPromiseCapability");
+        MemorySegment resolvingFuncs = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT, 2);
+        long stride = QuickJsNative.JS_VALUE_LAYOUT.byteSize();
+        try {
+            MemorySegment promise = (MemorySegment) context.nativeApi.newPromiseCapabilityHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    resolvingFuncs);
+            JsValue promiseValue = new JsValue(context.nativeApi, context.contextPtr, promise);
+            JsValue resolveValue = new JsValue(context.nativeApi, context.contextPtr, resolvingFuncs.asSlice(0, stride));
+            JsValue rejectValue = new JsValue(context.nativeApi, context.contextPtr, resolvingFuncs.asSlice(stride, stride));
+            return new JsPromiseCapability(promiseValue, resolveValue, rejectValue);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewPromiseCapability", throwable);
+        }
+    }
+
     public MemorySegment value() {
         return value;
     }
@@ -1244,6 +1521,12 @@ public final class JsValue implements AutoCloseable {
     private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("JsValue is already closed");
+        }
+    }
+
+    private static void requireSupported(java.lang.invoke.MethodHandle handle, String name) {
+        if (handle == null) {
+            throw new UnsupportedOperationException(name + " is not available in this QuickJS build");
         }
     }
 }

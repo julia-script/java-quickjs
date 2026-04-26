@@ -178,6 +178,24 @@ public final class QuickJsNative {
     final MethodHandle getModuleNameHandle;
     final MethodHandle getModuleNamespaceHandle;
     final MethodHandle setModuleLoaderFuncHandle;
+    final MethodHandle newBoolHandle;
+    final MethodHandle newInt32Handle;
+    final MethodHandle newInt64Handle;
+    final MethodHandle newFloat64Handle;
+    final MethodHandle newBigInt64Handle;
+    final MethodHandle newBigUint64Handle;
+    final MethodHandle newStringHandle;
+    final MethodHandle newStringLenHandle;
+    final MethodHandle newObjectHandle;
+    final MethodHandle newObjectProtoHandle;
+    final MethodHandle newObjectClassHandle;
+    final MethodHandle newArrayHandle;
+    final MethodHandle newDateHandle;
+    final MethodHandle newSymbolHandle;
+    final MethodHandle newErrorHandle;
+    final MethodHandle newArrayBufferCopyHandle;
+    final MethodHandle newTypedArrayHandle;
+    final MethodHandle newPromiseCapabilityHandle;
 
     public QuickJsNative() {
         this(resolveNativeLibraryPath());
@@ -1120,6 +1138,116 @@ public final class QuickJsNative {
                 FunctionDescriptor.ofVoid(
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.newBoolHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewBool",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        this.newInt32Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewInt32",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        this.newInt64Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewInt64",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.newFloat64Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewFloat64",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE));
+        this.newBigInt64Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewBigInt64",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.newBigUint64Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewBigUint64",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.newStringHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewString",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.newStringLenHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewStringLen",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG));
+        this.newObjectHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewObject",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS));
+        this.newObjectProtoHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewObjectProto",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, JS_VALUE_LAYOUT));
+        this.newObjectClassHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewObjectClass",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        this.newArrayHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewArray",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS));
+        this.newDateHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewDate",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE));
+        this.newSymbolHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewSymbol",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_BOOLEAN));
+        this.newErrorHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewError",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS));
+        this.newArrayBufferCopyHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewArrayBufferCopy",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG));
+        this.newTypedArrayHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewTypedArray",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        this.newPromiseCapabilityHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewPromiseCapability",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS));
     }

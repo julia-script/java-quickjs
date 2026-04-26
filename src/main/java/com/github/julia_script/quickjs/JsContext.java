@@ -2,6 +2,7 @@ package com.github.julia_script.quickjs;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
@@ -14,6 +15,12 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class JsContext implements AutoCloseable {
+    private static final MemoryLayout JS_EVAL_OPTIONS_LAYOUT = MemoryLayout.structLayout(
+            ValueLayout.JAVA_INT.withName("version"),
+            ValueLayout.JAVA_INT.withName("eval_flags"),
+            ValueLayout.ADDRESS.withName("filename"),
+            ValueLayout.JAVA_INT.withName("line_num"),
+            MemoryLayout.paddingLayout(32));
     @FunctionalInterface
     public interface ModuleInitFunction {
         boolean init(JsContext context, JsModuleDef moduleDef);
@@ -68,7 +75,60 @@ public final class JsContext implements AutoCloseable {
     }
 
     public JsValue eval(String input, EvalOptions options) {
-        return eval(input, options.filename(), options.flags());
+        ensureOpen();
+        byte[] utf8 = input.getBytes(StandardCharsets.UTF_8);
+        MemorySegment sourceC = nativeApi.arena.allocateFrom(input);
+        if (nativeApi.eval2Handle == null) {
+            return eval(input, utf8.length, options.filename(), options.evalFlags());
+        }
+        MemorySegment optionsSegment = allocateEvalOptions(options);
+        try {
+            MemorySegment value = (MemorySegment) nativeApi.eval2Handle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr,
+                    sourceC,
+                    (long) utf8.length,
+                    optionsSegment);
+            return new JsValue(nativeApi, contextPtr, value);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_Eval2", throwable);
+        }
+    }
+
+    public JsValue evalThis(String input, JsValue thisObj, EvalOptions options) {
+        ensureOpen();
+        byte[] utf8 = input.getBytes(StandardCharsets.UTF_8);
+        MemorySegment sourceC = nativeApi.arena.allocateFrom(input);
+        if (nativeApi.evalThis2Handle != null) {
+            MemorySegment optionsSegment = allocateEvalOptions(options);
+            try {
+                MemorySegment value = (MemorySegment) nativeApi.evalThis2Handle.invokeExact(
+                        (SegmentAllocator) nativeApi.arena,
+                        contextPtr,
+                        thisObj.value(),
+                        sourceC,
+                        (long) utf8.length,
+                        optionsSegment);
+                return new JsValue(nativeApi, contextPtr, value);
+            } catch (Throwable throwable) {
+                throw new IllegalStateException("Failed to call JS_EvalThis2", throwable);
+            }
+        }
+        requireSupported(nativeApi.evalThisHandle, "JS_EvalThis");
+        try {
+            MemorySegment filenameC = nativeApi.arena.allocateFrom(options.filename());
+            MemorySegment value = (MemorySegment) nativeApi.evalThisHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr,
+                    thisObj.value(),
+                    sourceC,
+                    (long) utf8.length,
+                    filenameC,
+                    options.evalFlags());
+            return new JsValue(nativeApi, contextPtr, value);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_EvalThis", throwable);
+        }
     }
 
     public boolean hasException() {
@@ -414,6 +474,16 @@ public final class JsContext implements AutoCloseable {
         if (handle == null) {
             throw new UnsupportedOperationException(name + " is not available in this QuickJS build");
         }
+    }
+
+    private MemorySegment allocateEvalOptions(EvalOptions options) {
+        MemorySegment optionsSegment = nativeApi.arena.allocate(JS_EVAL_OPTIONS_LAYOUT);
+        MemorySegment filename = nativeApi.arena.allocateFrom(options.filename());
+        optionsSegment.set(ValueLayout.JAVA_INT, 0, options.version());
+        optionsSegment.set(ValueLayout.JAVA_INT, Integer.BYTES, options.evalFlags());
+        optionsSegment.set(ValueLayout.ADDRESS, 8, filename);
+        optionsSegment.set(ValueLayout.JAVA_INT, 16, options.lineNum());
+        return optionsSegment;
     }
 
     private MemorySegment ensureModuleInitCallbackStub() {

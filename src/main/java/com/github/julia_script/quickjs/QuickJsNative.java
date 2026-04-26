@@ -30,6 +30,9 @@ public final class QuickJsNative {
     public final MethodHandle newContextHandle;
     public final MethodHandle freeContextHandle;
     public final MethodHandle evalHandle;
+    public final MethodHandle eval2Handle;
+    public final MethodHandle evalThisHandle;
+    public final MethodHandle evalThis2Handle;
     public final MethodHandle toCStringLen2Handle;
     public final MethodHandle freeCStringHandle;
     public final MethodHandle freeValueHandle;
@@ -240,6 +243,39 @@ public final class QuickJsNative {
                         ValueLayout.JAVA_LONG,
                         ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT));
+        this.eval2Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_Eval2",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.ADDRESS));
+        this.evalThisHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_EvalThis",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT));
+        this.evalThis2Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_EvalThis2",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.ADDRESS));
         this.toCStringLen2Handle = linker.downcallHandle(
                 findRequired(lookup, "JS_ToCStringLen2"),
                 FunctionDescriptor.of(

@@ -115,6 +115,23 @@ class JsValueInitApiTest {
     }
 
     @Test
+    void functionAndConstructorChecksWork() {
+        String fnSrc = "(function f() {})";
+        String clsSrc = "(class C {})";
+        String objSrc = "({})";
+        try (JsValue fn = context.eval(fnSrc, fnSrc.length(), "<test>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+                JsValue cls = context.eval(clsSrc, clsSrc.length(), "<test>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+                JsValue plain = context.eval(objSrc, objSrc.length(), "<test>", QuickJsNative.JS_EVAL_TYPE_GLOBAL)) {
+            assertThat(fn.isFunction()).isTrue();
+            assertThat(fn.isConstructor()).isTrue();
+            assertThat(cls.isFunction()).isTrue();
+            assertThat(cls.isConstructor()).isTrue();
+            assertThat(plain.isFunction()).isFalse();
+            assertThat(plain.isConstructor()).isFalse();
+        }
+    }
+
+    @Test
     void arrayBufferAndUint8ArrayConstructorsWork() {
         if (context.nativeApi.newArrayBufferHandle == null
                 || context.nativeApi.newUint8ArrayHandle == null

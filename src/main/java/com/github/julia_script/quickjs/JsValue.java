@@ -1082,7 +1082,7 @@ public final class JsValue implements AutoCloseable {
 
     public boolean isFunction() {
         try {
-            return (boolean) nativeApi.isFunctionHandle.invokeExact(value);
+            return (boolean) nativeApi.isFunctionHandle.invokeExact(contextPtr, value);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_IsFunction", throwable);
         }
@@ -1090,7 +1090,7 @@ public final class JsValue implements AutoCloseable {
 
     public boolean isConstructor() {
         try {
-            return (boolean) nativeApi.isConstructorHandle.invokeExact(value);
+            return (boolean) nativeApi.isConstructorHandle.invokeExact(contextPtr, value);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_IsConstructor", throwable);
         }

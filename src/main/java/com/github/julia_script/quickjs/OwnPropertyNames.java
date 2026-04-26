@@ -18,7 +18,7 @@ public final class OwnPropertyNames implements AutoCloseable {
     private final int length;
     private boolean closed;
 
-    OwnPropertyNames(QuickJsNative nativeApi, MemorySegment contextPtr, MemorySegment entries, int length) {
+    public OwnPropertyNames(QuickJsNative nativeApi, MemorySegment contextPtr, MemorySegment entries, int length) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
         this.entries = entries;

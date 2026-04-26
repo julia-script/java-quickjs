@@ -9,7 +9,7 @@ public final class JsContext implements AutoCloseable {
     final MemorySegment contextPtr;
     private boolean closed;
 
-    JsContext(QuickJsNative nativeApi, MemorySegment contextPtr) {
+    public JsContext(QuickJsNative nativeApi, MemorySegment contextPtr) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
     }

@@ -7,7 +7,7 @@ public final class JsBuffer implements AutoCloseable {
     private final long bytesPerElement;
     private boolean closed;
 
-    JsBuffer(JsValue bufferValue, long byteOffset, long byteLength, long bytesPerElement) {
+    public JsBuffer(JsValue bufferValue, long byteOffset, long byteLength, long bytesPerElement) {
         this.bufferValue = bufferValue;
         this.byteOffset = byteOffset;
         this.byteLength = byteLength;

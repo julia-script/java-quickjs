@@ -75,13 +75,13 @@ public final class JsValue implements AutoCloseable {
         return value.get(ValueLayout.JAVA_LONG, 8);
     }
 
-    JsValue(QuickJsNative nativeApi, MemorySegment contextPtr, MemorySegment value) {
+    public JsValue(QuickJsNative nativeApi, MemorySegment contextPtr, MemorySegment value) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
         this.value = value;
     }
 
-    MemorySegment value() {
+    public MemorySegment value() {
         return value;
     }
 

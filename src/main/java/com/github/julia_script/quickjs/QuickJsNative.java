@@ -14,25 +14,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-final class QuickJsNative {
-    static final int JS_EVAL_TYPE_GLOBAL = 0;
-    static final MemoryLayout JS_VALUE_LAYOUT = MemoryLayout.structLayout(
+public final class QuickJsNative {
+    public static final int JS_EVAL_TYPE_GLOBAL = 0;
+    public static final MemoryLayout JS_VALUE_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_LONG.withName("u"),
             ValueLayout.JAVA_LONG.withName("tag"));
     // boolean
-    static final long POINTER_BITS = ValueLayout.ADDRESS.byteSize() * 8;
+    public static final long POINTER_BITS = ValueLayout.ADDRESS.byteSize() * 8;
 
-    static final boolean IS_NAN_BOXED = POINTER_BITS < 64;
+    public static final boolean IS_NAN_BOXED = POINTER_BITS < 64;
 
-    final Arena arena;
-    final MethodHandle newRuntimeHandle;
-    final MethodHandle freeRuntimeHandle;
-    final MethodHandle newContextHandle;
-    final MethodHandle freeContextHandle;
-    final MethodHandle evalHandle;
-    final MethodHandle toCStringLen2Handle;
-    final MethodHandle freeCStringHandle;
-    final MethodHandle freeValueHandle;
+    public final Arena arena;
+    public final MethodHandle newRuntimeHandle;
+    public final MethodHandle freeRuntimeHandle;
+    public final MethodHandle newContextHandle;
+    public final MethodHandle freeContextHandle;
+    public final MethodHandle evalHandle;
+    public final MethodHandle toCStringLen2Handle;
+    public final MethodHandle freeCStringHandle;
+    public final MethodHandle freeValueHandle;
 
     final MethodHandle resolveModuleHandle;
 
@@ -147,11 +147,11 @@ final class QuickJsNative {
     final MethodHandle setClassProtoHandle;
     final MethodHandle getClassProtoHandle;
 
-    QuickJsNative() {
+    public QuickJsNative() {
         this(resolveNativeLibraryPath());
     }
 
-    QuickJsNative(Path libraryPath) {
+    public QuickJsNative(Path libraryPath) {
         this.arena = Arena.ofConfined();
         SymbolLookup lookup = SymbolLookup.libraryLookup(libraryPath.toAbsolutePath(), arena);
         Linker linker = Linker.nativeLinker();
@@ -902,7 +902,7 @@ final class QuickJsNative {
                         ValueLayout.JAVA_INT));
     }
 
-    void closeArena() {
+    public void closeArena() {
         arena.close();
     }
 

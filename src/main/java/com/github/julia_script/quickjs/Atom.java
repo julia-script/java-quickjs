@@ -10,7 +10,7 @@ public final class Atom implements AutoCloseable {
     private int value;
     private boolean closed;
 
-    Atom(QuickJsNative nativeApi, MemorySegment contextPtr, int value) {
+    public Atom(QuickJsNative nativeApi, MemorySegment contextPtr, int value) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
         this.value = value;

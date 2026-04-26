@@ -108,6 +108,11 @@ val nativeTargets = listOf(
                 "$sourcePath/libunicode.c",
                 "$sourcePath/dtoa.c",
                 "-Wl,--export-all-symbols",
+                "-funsigned-char",
+                "-fno-omit-frame-pointer",
+                "-fno-sanitize=undefined",
+                "-fno-sanitize-trap=undefined",
+                "-fvisibility=hidden",
                 "-o", outputPath,
             )
         },

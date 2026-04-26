@@ -180,8 +180,10 @@ public final class QuickJsNative {
     final MethodHandle setModuleLoaderFuncHandle;
     final MethodHandle newBoolHandle;
     final MethodHandle newInt32Handle;
+    final MethodHandle newUint32Handle;
     final MethodHandle newInt64Handle;
     final MethodHandle newFloat64Handle;
+    final MethodHandle newNumberHandle;
     final MethodHandle newBigInt64Handle;
     final MethodHandle newBigUint64Handle;
     final MethodHandle newStringHandle;
@@ -196,6 +198,12 @@ public final class QuickJsNative {
     final MethodHandle newArrayBufferCopyHandle;
     final MethodHandle newTypedArrayHandle;
     final MethodHandle newPromiseCapabilityHandle;
+    final MethodHandle newArrayBufferHandle;
+    final MethodHandle newUint8ArrayHandle;
+    final MethodHandle newUint8ArrayCopyHandle;
+    final MethodHandle dupValueHandle;
+    final MethodHandle dupValueRTHandle;
+    final MethodHandle freeValueRTHandle;
 
     public QuickJsNative() {
         this(resolveNativeLibraryPath());
@@ -1150,6 +1158,11 @@ public final class QuickJsNative {
                 lookup,
                 "JS_NewInt32",
                 FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        this.newUint32Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewUint32",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
         this.newInt64Handle = downcallOptional(
                 linker,
                 lookup,
@@ -1159,6 +1172,11 @@ public final class QuickJsNative {
                 linker,
                 lookup,
                 "JS_NewFloat64",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE));
+        this.newNumberHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewNumber",
                 FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, ValueLayout.JAVA_DOUBLE));
         this.newBigInt64Handle = downcallOptional(
                 linker,
@@ -1250,6 +1268,62 @@ public final class QuickJsNative {
                         JS_VALUE_LAYOUT,
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS));
+        this.newArrayBufferHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewArrayBuffer",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_BOOLEAN));
+        this.newUint8ArrayHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewUint8Array",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_BOOLEAN));
+        this.newUint8ArrayCopyHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewUint8ArrayCopy",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_LONG));
+        this.dupValueHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_DupValue",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        JS_VALUE_LAYOUT));
+        this.dupValueRTHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_DupValueRT",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        JS_VALUE_LAYOUT));
+        this.freeValueRTHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_FreeValueRT",
+                FunctionDescriptor.ofVoid(
+                        ValueLayout.ADDRESS,
+                        JS_VALUE_LAYOUT));
     }
 
     public void closeArena() {

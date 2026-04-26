@@ -82,54 +82,51 @@ public final class JsValue implements AutoCloseable {
     }
 
     public static JsValue newBool(JsContext context, boolean input) {
-        requireSupported(context.nativeApi.newBoolHandle, "JS_NewBool");
-        try {
-            MemorySegment result = (MemorySegment) context.nativeApi.newBoolHandle.invokeExact(
-                    (SegmentAllocator) context.nativeApi.arena,
-                    context.contextPtr,
-                    input ? 1 : 0);
-            return new JsValue(context.nativeApi, context.contextPtr, result);
-        } catch (Throwable throwable) {
-            throw new IllegalStateException("Failed to call JS_NewBool", throwable);
-        }
+        MemorySegment result = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT);
+        result.set(ValueLayout.JAVA_LONG, 0, input ? 1L : 0L);
+        result.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), Tag.BOOL);
+        return new JsValue(context.nativeApi, context.contextPtr, result);
     }
 
     public static JsValue newInt32(JsContext context, int input) {
-        requireSupported(context.nativeApi.newInt32Handle, "JS_NewInt32");
-        try {
-            MemorySegment result = (MemorySegment) context.nativeApi.newInt32Handle.invokeExact(
-                    (SegmentAllocator) context.nativeApi.arena,
-                    context.contextPtr,
-                    input);
-            return new JsValue(context.nativeApi, context.contextPtr, result);
-        } catch (Throwable throwable) {
-            throw new IllegalStateException("Failed to call JS_NewInt32", throwable);
-        }
+        MemorySegment result = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT);
+        result.set(ValueLayout.JAVA_LONG, 0, input);
+        result.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), Tag.INT);
+        return new JsValue(context.nativeApi, context.contextPtr, result);
     }
 
     public static JsValue newInt64(JsContext context, long input) {
-        requireSupported(context.nativeApi.newInt64Handle, "JS_NewInt64");
-        try {
-            MemorySegment result = (MemorySegment) context.nativeApi.newInt64Handle.invokeExact(
-                    (SegmentAllocator) context.nativeApi.arena,
-                    context.contextPtr,
-                    input);
-            return new JsValue(context.nativeApi, context.contextPtr, result);
-        } catch (Throwable throwable) {
-            throw new IllegalStateException("Failed to call JS_NewInt64", throwable);
+        if (input >= Integer.MIN_VALUE && input <= Integer.MAX_VALUE) {
+            return newInt32(context, (int) input);
         }
+        return newFloat64(context, input);
+    }
+
+    public static JsValue newUint32(JsContext context, int input) {
+        if (input >= 0) {
+            return newInt32(context, input);
+        }
+        long unsigned = Integer.toUnsignedLong(input);
+        return newFloat64(context, unsigned);
     }
 
     public static JsValue newFloat64(JsContext context, double input) {
-        requireSupported(context.nativeApi.newFloat64Handle, "JS_NewFloat64");
+        MemorySegment result = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT);
+        result.set(ValueLayout.JAVA_LONG, 0, Double.doubleToRawLongBits(input));
+        result.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), Tag.FLOAT64);
+        return new JsValue(context.nativeApi, context.contextPtr, result);
+    }
+
+    public static JsValue newNumber(JsContext context, double input) {
+        requireSupported(context.nativeApi.newNumberHandle, "JS_NewNumber");
         try {
-            MemorySegment result = (MemorySegment) context.nativeApi.newFloat64Handle.invokeExact(
+            MemorySegment result = (MemorySegment) context.nativeApi.newNumberHandle.invokeExact(
                     (SegmentAllocator) context.nativeApi.arena,
                     context.contextPtr,
                     input);
             return new JsValue(context.nativeApi, context.contextPtr, result);
         } catch (Throwable throwable) {
-            throw new IllegalStateException("Failed to call JS_NewFloat64", throwable);
+            throw new IllegalStateException("Failed to call JS_NewNumber", throwable);
         }
     }
 
@@ -160,17 +157,7 @@ public final class JsValue implements AutoCloseable {
     }
 
     public static JsValue newString(JsContext context, String input) {
-        requireSupported(context.nativeApi.newStringHandle, "JS_NewString");
-        MemorySegment inputC = context.nativeApi.arena.allocateFrom(input);
-        try {
-            MemorySegment result = (MemorySegment) context.nativeApi.newStringHandle.invokeExact(
-                    (SegmentAllocator) context.nativeApi.arena,
-                    context.contextPtr,
-                    inputC);
-            return new JsValue(context.nativeApi, context.contextPtr, result);
-        } catch (Throwable throwable) {
-            throw new IllegalStateException("Failed to call JS_NewString", throwable);
-        }
+        return newStringLen(context, input);
     }
 
     public static JsValue newStringLen(JsContext context, String input) {
@@ -293,15 +280,24 @@ public final class JsValue implements AutoCloseable {
     }
 
     public static JsValue nullValue(JsContext context) {
-        return context.eval("null", "<inline>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+        MemorySegment result = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT);
+        result.set(ValueLayout.JAVA_LONG, 0, 0L);
+        result.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), Tag.NULL);
+        return new JsValue(context.nativeApi, context.contextPtr, result);
     }
 
     public static JsValue undefinedValue(JsContext context) {
-        return context.eval("undefined", "<inline>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+        MemorySegment result = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT);
+        result.set(ValueLayout.JAVA_LONG, 0, 0L);
+        result.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), Tag.UNDEFINED);
+        return new JsValue(context.nativeApi, context.contextPtr, result);
     }
 
     public static JsValue uninitializedValue(JsContext context) {
-        return context.eval("void 0", "<inline>", QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+        MemorySegment result = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT);
+        result.set(ValueLayout.JAVA_LONG, 0, 0L);
+        result.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), Tag.UNINITIALIZED);
+        return new JsValue(context.nativeApi, context.contextPtr, result);
     }
 
     public static JsValue newArrayBufferCopy(JsContext context, byte[] buffer) {
@@ -316,6 +312,55 @@ public final class JsValue implements AutoCloseable {
             return new JsValue(context.nativeApi, context.contextPtr, result);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_NewArrayBufferCopy", throwable);
+        }
+    }
+
+    public static JsValue newArrayBuffer(JsContext context, MemorySegment buffer, long length, boolean isShared) {
+        requireSupported(context.nativeApi.newArrayBufferHandle, "JS_NewArrayBuffer");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newArrayBufferHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    buffer,
+                    length,
+                    MemorySegment.NULL,
+                    MemorySegment.NULL,
+                    isShared);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewArrayBuffer", throwable);
+        }
+    }
+
+    public static JsValue newUint8Array(JsContext context, MemorySegment buffer, long length, boolean isShared) {
+        requireSupported(context.nativeApi.newUint8ArrayHandle, "JS_NewUint8Array");
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newUint8ArrayHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    buffer,
+                    length,
+                    MemorySegment.NULL,
+                    MemorySegment.NULL,
+                    isShared);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewUint8Array", throwable);
+        }
+    }
+
+    public static JsValue newUint8ArrayCopy(JsContext context, byte[] buffer) {
+        requireSupported(context.nativeApi.newUint8ArrayCopyHandle, "JS_NewUint8ArrayCopy");
+        MemorySegment bufferSegment = context.nativeApi.arena.allocateFrom(ValueLayout.JAVA_BYTE, buffer);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newUint8ArrayCopyHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    bufferSegment,
+                    (long) buffer.length);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewUint8ArrayCopy", throwable);
         }
     }
 
@@ -356,6 +401,40 @@ public final class JsValue implements AutoCloseable {
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_NewPromiseCapability", throwable);
         }
+    }
+
+    public static JsValue init(JsContext context, Object value) {
+        if (value == null) {
+            return nullValue(context);
+        }
+        if (value instanceof JsValue jsValue) {
+            return jsValue.dup();
+        }
+        if (value instanceof Boolean boolValue) {
+            return newBool(context, boolValue);
+        }
+        if (value instanceof Byte byteValue) {
+            return newInt32(context, byteValue.intValue());
+        }
+        if (value instanceof Short shortValue) {
+            return newInt32(context, shortValue.intValue());
+        }
+        if (value instanceof Integer intValue) {
+            return newInt32(context, intValue);
+        }
+        if (value instanceof Long longValue) {
+            return newInt64(context, longValue);
+        }
+        if (value instanceof Float floatValue) {
+            return newFloat64(context, floatValue.doubleValue());
+        }
+        if (value instanceof Double doubleValue) {
+            return newFloat64(context, doubleValue);
+        }
+        if (value instanceof String stringValue) {
+            return newStringLen(context, stringValue);
+        }
+        throw new IllegalArgumentException("Unsupported Java value type for JsValue.init: " + value.getClass().getName());
     }
 
     public MemorySegment value() {
@@ -553,6 +632,14 @@ public final class JsValue implements AutoCloseable {
             return (boolean) nativeApi.isConstructorHandle.invokeExact(value);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_IsConstructor", throwable);
+        }
+    }
+
+    public void detachArrayBuffer() {
+        try {
+            nativeApi.detachArrayBufferHandle.invokeExact(contextPtr, value);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_DetachArrayBuffer", throwable);
         }
     }
 
@@ -1485,6 +1572,47 @@ public final class JsValue implements AutoCloseable {
         return Optional.of(textPtr);
     }
 
+    public JsValue dup() {
+        requireSupported(nativeApi.dupValueHandle, "JS_DupValue");
+        ensureOpen();
+        try {
+            MemorySegment duplicated = (MemorySegment) nativeApi.dupValueHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr,
+                    value);
+            return new JsValue(nativeApi, contextPtr, duplicated);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_DupValue", throwable);
+        }
+    }
+
+    public JsValue dupRT(JsRuntime runtime) {
+        requireSupported(nativeApi.dupValueRTHandle, "JS_DupValueRT");
+        ensureOpen();
+        try {
+            MemorySegment duplicated = (MemorySegment) nativeApi.dupValueRTHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    runtime.runtimePtr,
+                    value);
+            return new JsValue(nativeApi, contextPtr, duplicated);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_DupValueRT", throwable);
+        }
+    }
+
+    public void deinitRT(JsRuntime runtime) {
+        requireSupported(nativeApi.freeValueRTHandle, "JS_FreeValueRT");
+        if (closed) {
+            return;
+        }
+        closed = true;
+        try {
+            nativeApi.freeValueRTHandle.invokeExact(runtime.runtimePtr, value);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_FreeValueRT", throwable);
+        }
+    }
+
     public String toJavaString() {
         Optional<JsCString> maybeCString = toCStringLen();
         if (maybeCString.isEmpty()) {
@@ -1496,6 +1624,25 @@ public final class JsValue implements AutoCloseable {
             return new String(
                     cString.ptr().reinterpret(cString.len()).toArray(ValueLayout.JAVA_BYTE),
                     StandardCharsets.UTF_8);
+        } finally {
+            try {
+                nativeApi.freeCStringHandle.invokeExact(contextPtr, cString.ptr());
+            } catch (Throwable throwable) {
+                throw new IllegalStateException("Failed to call JS_FreeCString", throwable);
+            }
+        }
+    }
+
+    public Optional<String> toUtf8Slice() {
+        Optional<JsCString> maybeCString = toCStringLen();
+        if (maybeCString.isEmpty()) {
+            return Optional.empty();
+        }
+        JsCString cString = maybeCString.get();
+        try {
+            return Optional.of(new String(
+                    cString.ptr().reinterpret(cString.len()).toArray(ValueLayout.JAVA_BYTE),
+                    StandardCharsets.UTF_8));
         } finally {
             try {
                 nativeApi.freeCStringHandle.invokeExact(contextPtr, cString.ptr());

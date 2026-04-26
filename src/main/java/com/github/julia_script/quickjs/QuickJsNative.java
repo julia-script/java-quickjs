@@ -204,6 +204,11 @@ public final class QuickJsNative {
     final MethodHandle dupValueHandle;
     final MethodHandle dupValueRTHandle;
     final MethodHandle freeValueRTHandle;
+    final MethodHandle newCFunction2Handle;
+    final MethodHandle newCFunction3Handle;
+    final MethodHandle newCFunctionDataHandle;
+    final MethodHandle newCFunctionData2Handle;
+    final MethodHandle newCClosureHandle;
 
     public QuickJsNative() {
         this(resolveNativeLibraryPath());
@@ -1324,6 +1329,69 @@ public final class QuickJsNative {
                 FunctionDescriptor.ofVoid(
                         ValueLayout.ADDRESS,
                         JS_VALUE_LAYOUT));
+        this.newCFunction2Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewCFunction2",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT));
+        this.newCFunction3Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewCFunction3",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        JS_VALUE_LAYOUT));
+        this.newCFunctionDataHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewCFunctionData",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        this.newCFunctionData2Handle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewCFunctionData2",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        this.newCClosureHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewCClosure",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
     }
 
     public void closeArena() {

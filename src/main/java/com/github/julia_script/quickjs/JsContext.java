@@ -9,6 +9,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class JsContext implements AutoCloseable {
@@ -26,6 +28,7 @@ public final class JsContext implements AutoCloseable {
     final QuickJsNative nativeApi;
     final MemorySegment contextPtr;
     private final Arena callbackArena;
+    private final List<Object> callbackRegistrations = new ArrayList<>();
     private MemorySegment moduleInitCallbackStub;
     private boolean closed;
 
@@ -364,6 +367,7 @@ public final class JsContext implements AutoCloseable {
         }
         closed = true;
         try {
+            callbackRegistrations.clear();
             nativeApi.freeContextHandle.invokeExact(contextPtr);
             if (callbackArena != null) {
                 callbackArena.close();
@@ -424,6 +428,22 @@ public final class JsContext implements AutoCloseable {
                         ValueLayout.ADDRESS),
                 callbackArena);
         return moduleInitCallbackStub;
+    }
+
+    MemorySegment createUpcallStub(MethodHandle handle, FunctionDescriptor descriptor) {
+        ensureOpen();
+        if (callbackArena == null) {
+            throw new IllegalStateException("Callback arena is not available for this context");
+        }
+        return java.lang.foreign.Linker.nativeLinker().upcallStub(handle, descriptor, callbackArena);
+    }
+
+    void retainCallbackRegistration(Object registration) {
+        ensureOpen();
+        if (callbackArena == null) {
+            return;
+        }
+        callbackRegistrations.add(registration);
     }
 
     @SuppressWarnings("unused")

@@ -180,7 +180,7 @@ class JsValueInitApiTest {
 
     @Test
     void genericInitConvenienceRoutesTypes() {
-        try (JsValue fromNull = JsValue.init(context, null);
+        try (JsValue fromNull = JsValue.initNull(context);
                 JsValue fromBool = JsValue.init(context, true);
                 JsValue fromInt = JsValue.init(context, 7);
                 JsValue fromLong = JsValue.init(context, 8L);

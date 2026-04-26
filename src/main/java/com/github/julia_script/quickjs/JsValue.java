@@ -1,13 +1,52 @@
 package com.github.julia_script.quickjs;
 
+import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 public final class JsValue implements AutoCloseable {
     private static final long JS_VALUE_SIZE = QuickJsNative.JS_VALUE_LAYOUT.byteSize();
+    private static final MethodHandle CFUNCTION_MAGIC_DISPATCH_HANDLE = bindDispatch(
+            "cFunctionMagicDispatch",
+            MethodType.methodType(
+                    MemorySegment.class,
+                    HostFunctionRegistration.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    int.class,
+                    MemorySegment.class,
+                    int.class));
+    private static final MethodHandle CFUNCTION_DATA_DISPATCH_HANDLE = bindDispatch(
+            "cFunctionDataDispatch",
+            MethodType.methodType(
+                    MemorySegment.class,
+                    HostFunctionRegistration.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    int.class,
+                    MemorySegment.class,
+                    int.class,
+                    MemorySegment.class));
+    private static final MethodHandle CCLOSURE_DISPATCH_HANDLE = bindDispatch(
+            "cClosureDispatch",
+            MethodType.methodType(
+                    MemorySegment.class,
+                    HostFunctionRegistration.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    int.class,
+                    MemorySegment.class,
+                    int.class,
+                    MemorySegment.class));
+    private static final MethodHandle CCLOSURE_FINALIZER_DISPATCH_HANDLE = bindDispatch(
+            "cClosureFinalizerDispatch",
+            MethodType.methodType(void.class, HostFunctionRegistration.class, MemorySegment.class));
     private final QuickJsNative nativeApi;
     private final MemorySegment contextPtr;
     private final MemorySegment value;
@@ -65,6 +104,91 @@ public final class JsValue implements AutoCloseable {
             }
             return Optional.empty();
         }
+    }
+
+    /**
+     * Java host callback invoked by QuickJS when a host-backed function is called from JavaScript.
+     * <p>
+     * Use this for all host/native function entry points created via {@code initHostFunction(...)}.
+     * The same callback shape is used for plain functions, magic/cproto variants, data-bound
+     * functions, and closure functions. Unused optional inputs are provided as {@code null}
+     * or empty arrays as appropriate.
+     */
+    @FunctionalInterface
+    public interface HostFunctionCallback {
+        /**
+         * Executes a host function call.
+         *
+         * @param context active JavaScript context for the call
+         * @param thisValue JavaScript {@code this} value
+         * @param args call arguments (empty when no args are passed)
+         * @param magic optional magic value for magic/cproto variants, otherwise {@code null}
+         * @param functionData optional captured data values for data variants, otherwise empty
+         * @param opaque optional opaque pointer for closure variants, otherwise {@link MemorySegment#NULL}
+         * @return a JavaScript value result; returning {@code null} maps to JS {@code undefined}
+         */
+        JsValue call(
+                JsContext context,
+                JsValue thisValue,
+                JsValue[] args,
+                Integer magic,
+                JsValue[] functionData,
+                MemorySegment opaque);
+    }
+
+    /**
+     * Finalizer for opaque data used by closure-style host functions.
+     * <p>
+     * This runs when QuickJS disposes the closure and gives your code a chance to clean up
+     * resources associated with the opaque pointer.
+     */
+    @FunctionalInterface
+    public interface HostFunctionFinalizer {
+        /**
+         * Cleans up closure opaque state.
+         *
+         * @param opaque opaque pointer originally passed to {@code initHostFunction(..., opaque, ...)}
+         */
+        void finalizeOpaque(MemorySegment opaque);
+    }
+
+    /**
+     * QuickJS host function calling convention/type.
+     * <p>
+     * Most users should start with {@link #GENERIC}. Use other variants only when you need
+     * constructor/getter/setter/iterator semantics or magic-enabled forms.
+     */
+    public enum HostFunctionType {
+        GENERIC(0),
+        GENERIC_MAGIC(1),
+        CONSTRUCTOR(2),
+        CONSTRUCTOR_MAGIC(3),
+        CONSTRUCTOR_OR_FUNC(4),
+        CONSTRUCTOR_OR_FUNC_MAGIC(5),
+        FLOAT_FLOAT(6),
+        FLOAT_FLOAT_FLOAT(7),
+        GETTER(8),
+        SETTER(9),
+        GETTER_MAGIC(10),
+        SETTER_MAGIC(11),
+        ITERATOR_NEXT(12);
+
+        private final int value;
+
+        HostFunctionType(int value) {
+            this.value = value;
+        }
+
+        public int value() {
+            return value;
+        }
+    }
+
+    private record HostFunctionRegistration(
+            QuickJsNative nativeApi,
+            HostFunctionCallback callback,
+            HostFunctionFinalizer finalizer,
+            int dataLength) {
     }
 
     public long getU() {
@@ -403,38 +527,375 @@ public final class JsValue implements AutoCloseable {
         }
     }
 
+    public static JsValue init(JsContext context, boolean value) {
+        return newBool(context, value);
+    }
+
+    public static JsValue init(JsContext context, byte value) {
+        return newInt32(context, value);
+    }
+
+    public static JsValue init(JsContext context, short value) {
+        return newInt32(context, value);
+    }
+
+    public static JsValue init(JsContext context, int value) {
+        return newInt32(context, value);
+    }
+
+    public static JsValue init(JsContext context, long value) {
+        return newInt64(context, value);
+    }
+
+    public static JsValue init(JsContext context, float value) {
+        return newFloat64(context, value);
+    }
+
+    public static JsValue init(JsContext context, double value) {
+        return newFloat64(context, value);
+    }
+
+    public static JsValue init(JsContext context, String value) {
+        return newStringLen(context, value);
+    }
+
+    public static JsValue init(JsContext context, JsValue value) {
+        return value.dup();
+    }
+
+    public static JsValue initNull(JsContext context) {
+        return nullValue(context);
+    }
+
     public static JsValue init(JsContext context, Object value) {
         if (value == null) {
-            return nullValue(context);
+            return initNull(context);
         }
         if (value instanceof JsValue jsValue) {
-            return jsValue.dup();
+            return init(context, jsValue);
         }
         if (value instanceof Boolean boolValue) {
-            return newBool(context, boolValue);
+            return init(context, boolValue.booleanValue());
         }
         if (value instanceof Byte byteValue) {
-            return newInt32(context, byteValue.intValue());
+            return init(context, byteValue.byteValue());
         }
         if (value instanceof Short shortValue) {
-            return newInt32(context, shortValue.intValue());
+            return init(context, shortValue.shortValue());
         }
         if (value instanceof Integer intValue) {
-            return newInt32(context, intValue);
+            return init(context, intValue.intValue());
         }
         if (value instanceof Long longValue) {
-            return newInt64(context, longValue);
+            return init(context, longValue.longValue());
         }
         if (value instanceof Float floatValue) {
-            return newFloat64(context, floatValue.doubleValue());
+            return init(context, floatValue.floatValue());
         }
         if (value instanceof Double doubleValue) {
-            return newFloat64(context, doubleValue);
+            return init(context, doubleValue.doubleValue());
         }
         if (value instanceof String stringValue) {
-            return newStringLen(context, stringValue);
+            return init(context, stringValue);
         }
         throw new IllegalArgumentException("Unsupported Java value type for JsValue.init: " + value.getClass().getName());
+    }
+
+    /**
+     * Creates a standard host function using the default generic calling convention.
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param name function name exposed to JavaScript
+     * @param length expected argument count used as JS function {@code length}
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(JsContext context, HostFunctionCallback callback, String name, int length) {
+        return initHostFunction(context, callback, name, length, HostFunctionType.GENERIC, 0);
+    }
+
+    /**
+     * Creates a host function with explicit QuickJS function type and magic value.
+     * <p>
+     * Use this overload when you need constructor/getter/setter/iterator behavior or want
+     * to pass a compact integer discriminator ({@code magic}) into the callback.
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param name function name exposed to JavaScript
+     * @param length expected argument count used as JS function {@code length}
+     * @param cproto QuickJS function type/calling convention
+     * @param magic integer value surfaced in callback {@code magic}
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(
+            JsContext context,
+            HostFunctionCallback callback,
+            String name,
+            int length,
+            HostFunctionType cproto,
+            int magic) {
+        requireSupported(context.nativeApi.newCFunction2Handle, "JS_NewCFunction2");
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, 0);
+        MethodHandle dispatch = CFUNCTION_MAGIC_DISPATCH_HANDLE.bindTo(registration);
+        MemorySegment callbackStub = context.createUpcallStub(
+                dispatch,
+                FunctionDescriptor.of(
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT));
+        context.retainCallbackRegistration(registration);
+        MemorySegment nameC = context.nativeApi.arena.allocateFrom(name);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newCFunction2Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    callbackStub,
+                    nameC,
+                    length,
+                    cproto.value(),
+                    magic);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewCFunction2", throwable);
+        }
+    }
+
+    /**
+     * Creates a host function with explicit function type/magic and custom prototype object.
+     * <p>
+     * Use this when you need function behavior like the previous overload but must attach
+     * a specific prototype object (for example, constructor customization scenarios).
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param name function name exposed to JavaScript
+     * @param length expected argument count used as JS function {@code length}
+     * @param cproto QuickJS function type/calling convention
+     * @param magic integer value surfaced in callback {@code magic}
+     * @param protoValue custom prototype value assigned to the function
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(
+            JsContext context,
+            HostFunctionCallback callback,
+            String name,
+            int length,
+            HostFunctionType cproto,
+            int magic,
+            JsValue protoValue) {
+        requireSupported(context.nativeApi.newCFunction3Handle, "JS_NewCFunction3");
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, 0);
+        MethodHandle dispatch = CFUNCTION_MAGIC_DISPATCH_HANDLE.bindTo(registration);
+        MemorySegment callbackStub = context.createUpcallStub(
+                dispatch,
+                FunctionDescriptor.of(
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT));
+        context.retainCallbackRegistration(registration);
+        MemorySegment nameC = context.nativeApi.arena.allocateFrom(name);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newCFunction3Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    callbackStub,
+                    nameC,
+                    length,
+                    cproto.value(),
+                    magic,
+                    protoValue.value());
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewCFunction3", throwable);
+        }
+    }
+
+    /**
+     * Creates a host function that captures data values and makes them available to the callback.
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param length expected argument count used as JS function {@code length}
+     * @param magic integer value surfaced in callback {@code magic}
+     * @param data captured JavaScript values exposed via callback {@code functionData}
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(
+            JsContext context,
+            HostFunctionCallback callback,
+            int length,
+            int magic,
+            JsValue[] data) {
+        requireSupported(context.nativeApi.newCFunctionDataHandle, "JS_NewCFunctionData");
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, data.length);
+        MethodHandle dispatch = CFUNCTION_DATA_DISPATCH_HANDLE.bindTo(registration);
+        MemorySegment callbackStub = context.createUpcallStub(
+                dispatch,
+                FunctionDescriptor.of(
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        context.retainCallbackRegistration(registration);
+        MemorySegment dataSegment = packArgs(context, data);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newCFunctionDataHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    callbackStub,
+                    length,
+                    magic,
+                    data.length,
+                    dataSegment);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewCFunctionData", throwable);
+        }
+    }
+
+    /**
+     * Creates a named host function with captured data values.
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param name function name exposed to JavaScript
+     * @param length expected argument count used as JS function {@code length}
+     * @param magic integer value surfaced in callback {@code magic}
+     * @param data captured JavaScript values exposed via callback {@code functionData}
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(
+            JsContext context,
+            HostFunctionCallback callback,
+            String name,
+            int length,
+            int magic,
+            JsValue[] data) {
+        requireSupported(context.nativeApi.newCFunctionData2Handle, "JS_NewCFunctionData2");
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, data.length);
+        MethodHandle dispatch = CFUNCTION_DATA_DISPATCH_HANDLE.bindTo(registration);
+        MemorySegment callbackStub = context.createUpcallStub(
+                dispatch,
+                FunctionDescriptor.of(
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        context.retainCallbackRegistration(registration);
+        MemorySegment nameC = context.nativeApi.arena.allocateFrom(name);
+        MemorySegment dataSegment = packArgs(context, data);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newCFunctionData2Handle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    callbackStub,
+                    nameC,
+                    length,
+                    magic,
+                    data.length,
+                    dataSegment);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewCFunctionData2", throwable);
+        }
+    }
+
+    /**
+     * Creates a closure-style host function with an opaque pointer.
+     * <p>
+     * Use this when callback state is represented by native/opaque memory and you do not need
+     * a custom finalizer.
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param name function name exposed to JavaScript
+     * @param length expected argument count used as JS function {@code length}
+     * @param magic integer value surfaced in callback {@code magic}
+     * @param opaque user-provided opaque pointer passed back to callback
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(
+            JsContext context,
+            HostFunctionCallback callback,
+            String name,
+            int length,
+            int magic,
+            MemorySegment opaque) {
+        return initHostFunction(context, callback, name, length, magic, opaque, null);
+    }
+
+    /**
+     * Creates a closure-style host function with opaque pointer and optional finalizer.
+     * <p>
+     * Use this when callback state lives outside the Java object graph and requires explicit
+     * cleanup when QuickJS disposes the function object.
+     *
+     * @param context active JavaScript context that will own the function
+     * @param callback Java callback invoked when the JS function is called
+     * @param name function name exposed to JavaScript
+     * @param length expected argument count used as JS function {@code length}
+     * @param magic integer value surfaced in callback {@code magic}
+     * @param opaque user-provided opaque pointer passed back to callback
+     * @param finalizer optional finalizer for cleaning opaque resources, or {@code null}
+     * @return created JavaScript function value
+     */
+    public static JsValue initHostFunction(
+            JsContext context,
+            HostFunctionCallback callback,
+            String name,
+            int length,
+            int magic,
+            MemorySegment opaque,
+            HostFunctionFinalizer finalizer) {
+        requireSupported(context.nativeApi.newCClosureHandle, "JS_NewCClosure");
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, finalizer, 0);
+        MethodHandle callbackDispatch = CCLOSURE_DISPATCH_HANDLE.bindTo(registration);
+        MemorySegment callbackStub = context.createUpcallStub(
+                callbackDispatch,
+                FunctionDescriptor.of(
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        QuickJsNative.JS_VALUE_LAYOUT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        MemorySegment finalizerStub = MemorySegment.NULL;
+        if (finalizer != null) {
+            MethodHandle finalizerDispatch = CCLOSURE_FINALIZER_DISPATCH_HANDLE.bindTo(registration);
+            finalizerStub = context.createUpcallStub(
+                    finalizerDispatch,
+                    FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        }
+        context.retainCallbackRegistration(registration);
+        MemorySegment nameC = context.nativeApi.arena.allocateFrom(name);
+        try {
+            MemorySegment result = (MemorySegment) context.nativeApi.newCClosureHandle.invokeExact(
+                    (SegmentAllocator) context.nativeApi.arena,
+                    context.contextPtr,
+                    callbackStub,
+                    nameC,
+                    finalizerStub,
+                    length,
+                    magic,
+                    opaque);
+            return new JsValue(context.nativeApi, context.contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewCClosure", throwable);
+        }
     }
 
     public MemorySegment value() {
@@ -1531,6 +1992,130 @@ public final class JsValue implements AutoCloseable {
         return segment;
     }
 
+    private static MemorySegment packArgs(JsContext context, JsValue[] args) {
+        MemorySegment segment = context.nativeApi.arena.allocate(QuickJsNative.JS_VALUE_LAYOUT, args.length);
+        long stride = QuickJsNative.JS_VALUE_LAYOUT.byteSize();
+        for (int i = 0; i < args.length; i++) {
+            MemorySegment slot = segment.asSlice((long) i * stride, stride);
+            MemorySegment.copy(args[i].value(), 0, slot, 0, stride);
+        }
+        return segment;
+    }
+
+    private static JsValue[] unpackArgs(QuickJsNative nativeApi, MemorySegment contextPtr, int argc, MemorySegment argvPtr) {
+        if (argc <= 0 || argvPtr.equals(MemorySegment.NULL)) {
+            return new JsValue[0];
+        }
+        JsValue[] args = new JsValue[argc];
+        long stride = QuickJsNative.JS_VALUE_LAYOUT.byteSize();
+        MemorySegment argsView = argvPtr.reinterpret((long) argc * stride);
+        for (int i = 0; i < argc; i++) {
+            MemorySegment arg = argsView.asSlice((long) i * stride, stride);
+            args[i] = new JsValue(nativeApi, contextPtr, arg);
+        }
+        return args;
+    }
+
+    @SuppressWarnings("unused")
+    private static MemorySegment cFunctionMagicDispatch(
+            HostFunctionRegistration registration,
+            MemorySegment callbackContext,
+            MemorySegment callbackThis,
+            int argc,
+            MemorySegment callbackArgv,
+            int magic) {
+        return invokeHostFunctionCallback(
+                registration,
+                callbackContext,
+                callbackThis,
+                argc,
+                callbackArgv,
+                magic,
+                MemorySegment.NULL,
+                MemorySegment.NULL);
+    }
+
+    @SuppressWarnings("unused")
+    private static MemorySegment cFunctionDataDispatch(
+            HostFunctionRegistration registration,
+            MemorySegment callbackContext,
+            MemorySegment callbackThis,
+            int argc,
+            MemorySegment callbackArgv,
+            int magic,
+            MemorySegment callbackFuncData) {
+        return invokeHostFunctionCallback(
+                registration,
+                callbackContext,
+                callbackThis,
+                argc,
+                callbackArgv,
+                magic,
+                callbackFuncData,
+                MemorySegment.NULL);
+    }
+
+    @SuppressWarnings("unused")
+    private static MemorySegment cClosureDispatch(
+            HostFunctionRegistration registration,
+            MemorySegment callbackContext,
+            MemorySegment callbackThis,
+            int argc,
+            MemorySegment callbackArgv,
+            int magic,
+            MemorySegment callbackOpaque) {
+        return invokeHostFunctionCallback(
+                registration,
+                callbackContext,
+                callbackThis,
+                argc,
+                callbackArgv,
+                magic,
+                MemorySegment.NULL,
+                callbackOpaque);
+    }
+
+    @SuppressWarnings("unused")
+    private static void cClosureFinalizerDispatch(HostFunctionRegistration registration, MemorySegment callbackOpaque) {
+        if (registration.finalizer() != null) {
+            registration.finalizer().finalizeOpaque(callbackOpaque);
+        }
+    }
+
+    private static MemorySegment invokeHostFunctionCallback(
+            HostFunctionRegistration registration,
+            MemorySegment callbackContext,
+            MemorySegment callbackThis,
+            int argc,
+            MemorySegment callbackArgv,
+            Integer magic,
+            MemorySegment callbackFuncData,
+            MemorySegment callbackOpaque) {
+        JsContext context = new JsContext(registration.nativeApi(), callbackContext, false);
+        JsValue thisValue = new JsValue(registration.nativeApi(), callbackContext, callbackThis);
+        JsValue[] args = unpackArgs(registration.nativeApi(), callbackContext, argc, callbackArgv);
+        JsValue[] functionData = unpackArgs(
+                registration.nativeApi(),
+                callbackContext,
+                registration.dataLength(),
+                callbackFuncData);
+        try {
+            JsValue result = registration.callback().call(
+                    context,
+                    thisValue,
+                    args,
+                    magic,
+                    functionData,
+                    callbackOpaque);
+            if (result == null) {
+                return undefinedValue(context).value();
+            }
+            return result.value();
+        } catch (Throwable throwable) {
+            return context.throwInternalError("Java host function callback failed: " + throwable.getMessage()).value();
+        }
+    }
+
     public Optional<JsCString> toCStringLen() {
         ensureOpen();
         MemorySegment textLen = nativeApi.arena.allocate(ValueLayout.JAVA_LONG);
@@ -1674,6 +2259,14 @@ public final class JsValue implements AutoCloseable {
     private static void requireSupported(java.lang.invoke.MethodHandle handle, String name) {
         if (handle == null) {
             throw new UnsupportedOperationException(name + " is not available in this QuickJS build");
+        }
+    }
+
+    private static MethodHandle bindDispatch(String methodName, MethodType type) {
+        try {
+            return MethodHandles.lookup().findStatic(JsValue.class, methodName, type);
+        } catch (ReflectiveOperationException exception) {
+            throw new ExceptionInInitializerError(exception);
         }
     }
 }

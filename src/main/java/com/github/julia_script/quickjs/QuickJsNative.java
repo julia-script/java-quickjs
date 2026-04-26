@@ -171,6 +171,13 @@ public final class QuickJsNative {
     final MethodHandle getFunctionProtoHandle;
     final MethodHandle loadModuleHandle;
     final MethodHandle getScriptOrModuleNameHandle;
+    final MethodHandle newCModuleHandle;
+    final MethodHandle addModuleExportHandle;
+    final MethodHandle setModuleExportHandle;
+    final MethodHandle getImportMetaHandle;
+    final MethodHandle getModuleNameHandle;
+    final MethodHandle getModuleNamespaceHandle;
+    final MethodHandle setModuleLoaderFuncHandle;
 
     public QuickJsNative() {
         this(resolveNativeLibraryPath());
@@ -1054,6 +1061,67 @@ public final class QuickJsNative {
                 lookup,
                 "JS_GetScriptOrModuleName",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+        this.newCModuleHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewCModule",
+                FunctionDescriptor.of(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.addModuleExportHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddModuleExport",
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.setModuleExportHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetModuleExport",
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        JS_VALUE_LAYOUT));
+        this.getImportMetaHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetImportMeta",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.getModuleNameHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetModuleName",
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.getModuleNamespaceHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetModuleNamespace",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.setModuleLoaderFuncHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetModuleLoaderFunc",
+                FunctionDescriptor.ofVoid(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
     }
 
     public void closeArena() {

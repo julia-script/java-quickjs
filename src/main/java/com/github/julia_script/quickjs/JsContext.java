@@ -1,17 +1,43 @@
 package com.github.julia_script.quickjs;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
+import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class JsContext implements AutoCloseable {
+    @FunctionalInterface
+    public interface ModuleInitFunction {
+        boolean init(JsContext context, JsModuleDef moduleDef);
+    }
+
+    private record ModuleInitRegistration(QuickJsNative nativeApi, ModuleInitFunction callback) {
+    }
+
+    private static final ConcurrentHashMap<Long, ModuleInitRegistration> MODULE_INIT_CALLBACKS = new ConcurrentHashMap<>();
+    private static final MethodHandle MODULE_INIT_DISPATCH_HANDLE = bindModuleInitDispatch();
+
     final QuickJsNative nativeApi;
     final MemorySegment contextPtr;
+    private final Arena callbackArena;
+    private MemorySegment moduleInitCallbackStub;
     private boolean closed;
 
     public JsContext(QuickJsNative nativeApi, MemorySegment contextPtr) {
+        this(nativeApi, contextPtr, true);
+    }
+
+    JsContext(QuickJsNative nativeApi, MemorySegment contextPtr, boolean withCallbackArena) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
+        this.callbackArena = withCallbackArena ? Arena.ofShared() : null;
+        this.moduleInitCallbackStub = MemorySegment.NULL;
     }
 
     public JsValue eval(String input, long inputLen, String filename, int evalFlags) {
@@ -312,6 +338,25 @@ public final class JsContext implements AutoCloseable {
         }
     }
 
+    public JsModuleDef newCModule(String name, ModuleInitFunction initFunction) {
+        ensureOpen();
+        requireSupported(nativeApi.newCModuleHandle, "JS_NewCModule");
+        MemorySegment nameC = nativeApi.arena.allocateFrom(name);
+        try {
+            MemorySegment modulePtr = (MemorySegment) nativeApi.newCModuleHandle.invokeExact(
+                    contextPtr,
+                    nameC,
+                    ensureModuleInitCallbackStub());
+            if (modulePtr.equals(MemorySegment.NULL)) {
+                throw new IllegalStateException("JS_NewCModule returned null");
+            }
+            MODULE_INIT_CALLBACKS.put(modulePtr.address(), new ModuleInitRegistration(nativeApi, initFunction));
+            return new JsModuleDef(nativeApi, modulePtr);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewCModule", throwable);
+        }
+    }
+
     @Override
     public void close() {
         if (closed) {
@@ -320,6 +365,9 @@ public final class JsContext implements AutoCloseable {
         closed = true;
         try {
             nativeApi.freeContextHandle.invokeExact(contextPtr);
+            if (callbackArena != null) {
+                callbackArena.close();
+            }
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to close JSContext", throwable);
         }
@@ -361,6 +409,42 @@ public final class JsContext implements AutoCloseable {
     private void requireSupported(java.lang.invoke.MethodHandle handle, String name) {
         if (handle == null) {
             throw new UnsupportedOperationException(name + " is not available in this QuickJS build");
+        }
+    }
+
+    private MemorySegment ensureModuleInitCallbackStub() {
+        if (!moduleInitCallbackStub.equals(MemorySegment.NULL)) {
+            return moduleInitCallbackStub;
+        }
+        moduleInitCallbackStub = java.lang.foreign.Linker.nativeLinker().upcallStub(
+                MODULE_INIT_DISPATCH_HANDLE,
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS),
+                callbackArena);
+        return moduleInitCallbackStub;
+    }
+
+    @SuppressWarnings("unused")
+    private static int moduleInitDispatch(MemorySegment callbackContext, MemorySegment callbackModuleDef) {
+        ModuleInitRegistration registration = MODULE_INIT_CALLBACKS.remove(callbackModuleDef.address());
+        if (registration == null) {
+            return -1;
+        }
+        JsContext context = new JsContext(registration.nativeApi(), callbackContext, false);
+        JsModuleDef moduleDef = new JsModuleDef(registration.nativeApi(), callbackModuleDef);
+        return registration.callback().init(context, moduleDef) ? 0 : -1;
+    }
+
+    private static MethodHandle bindModuleInitDispatch() {
+        try {
+            return MethodHandles.lookup().findStatic(
+                    JsContext.class,
+                    "moduleInitDispatch",
+                    MethodType.methodType(int.class, MemorySegment.class, MemorySegment.class));
+        } catch (ReflectiveOperationException exception) {
+            throw new ExceptionInInitializerError(exception);
         }
     }
 }

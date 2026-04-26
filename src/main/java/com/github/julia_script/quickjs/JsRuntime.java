@@ -1,11 +1,46 @@
 package com.github.julia_script.quickjs;
 
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 
 public final class JsRuntime implements AutoCloseable {
+    @FunctionalInterface
+    public interface ModuleNormalizeFunction {
+        MemorySegment normalize(JsContext context, String moduleBaseName, String moduleName);
+    }
+
+    @FunctionalInterface
+    public interface ModuleLoaderFunction {
+        JsModuleDef load(JsContext context, String moduleName);
+    }
+
+    private static final MethodHandle MODULE_NORMALIZE_DISPATCH_HANDLE = bindInstanceDispatch(
+            "moduleNormalizeDispatch",
+            MethodType.methodType(
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    MemorySegment.class));
+    private static final MethodHandle MODULE_LOADER_DISPATCH_HANDLE = bindInstanceDispatch(
+            "moduleLoaderDispatch",
+            MethodType.methodType(
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    MemorySegment.class));
+
     final QuickJsNative nativeApi;
     final MemorySegment runtimePtr;
+    private MemorySegment moduleNormalizeStub = MemorySegment.NULL;
+    private MemorySegment moduleLoaderStub = MemorySegment.NULL;
+    private ModuleNormalizeFunction moduleNormalizeFunction;
+    private ModuleLoaderFunction moduleLoaderFunction;
     private boolean closed;
 
     public JsRuntime() {
@@ -86,6 +121,27 @@ public final class JsRuntime implements AutoCloseable {
         }
     }
 
+    public void setModuleLoaderFunc(ModuleNormalizeFunction moduleNormalize, ModuleLoaderFunction moduleLoader) {
+        ensureOpen();
+        if (nativeApi.setModuleLoaderFuncHandle == null) {
+            throw new UnsupportedOperationException("JS_SetModuleLoaderFunc is not available in this QuickJS build");
+        }
+        moduleNormalizeFunction = moduleNormalize;
+        moduleLoaderFunction = moduleLoader;
+        if (moduleNormalize == null && moduleLoader == null) {
+            invokeSetModuleLoaderFunc(MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL);
+            return;
+        }
+
+        MemorySegment normalizeStub = moduleNormalize == null
+                ? MemorySegment.NULL
+                : ensureModuleNormalizeStub();
+        MemorySegment loaderStub = moduleLoader == null
+                ? MemorySegment.NULL
+                : ensureModuleLoaderStub();
+        invokeSetModuleLoaderFunc(normalizeStub, loaderStub, MemorySegment.NULL);
+    }
+
     @Override
     public void close() {
         if (closed) {
@@ -95,6 +151,8 @@ public final class JsRuntime implements AutoCloseable {
 
         Throwable closeError = null;
         try {
+            moduleNormalizeFunction = null;
+            moduleLoaderFunction = null;
             nativeApi.freeRuntimeHandle.invokeExact(runtimePtr);
         } catch (Throwable throwable) {
             closeError = throwable;
@@ -110,6 +168,93 @@ public final class JsRuntime implements AutoCloseable {
     private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("JsRuntime is already closed");
+        }
+    }
+
+    private void invokeSetModuleLoaderFunc(
+            MemorySegment moduleNormalize,
+            MemorySegment moduleLoader,
+            MemorySegment opaque) {
+        try {
+            nativeApi.setModuleLoaderFuncHandle.invokeExact(runtimePtr, moduleNormalize, moduleLoader, opaque);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_SetModuleLoaderFunc", throwable);
+        }
+    }
+
+    private MemorySegment ensureModuleNormalizeStub() {
+        if (!moduleNormalizeStub.equals(MemorySegment.NULL)) {
+            return moduleNormalizeStub;
+        }
+        moduleNormalizeStub = Linker.nativeLinker().upcallStub(
+                MODULE_NORMALIZE_DISPATCH_HANDLE.bindTo(this),
+                FunctionDescriptor.of(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS),
+                nativeApi.arena);
+        return moduleNormalizeStub;
+    }
+
+    private MemorySegment ensureModuleLoaderStub() {
+        if (!moduleLoaderStub.equals(MemorySegment.NULL)) {
+            return moduleLoaderStub;
+        }
+        moduleLoaderStub = Linker.nativeLinker().upcallStub(
+                MODULE_LOADER_DISPATCH_HANDLE.bindTo(this),
+                FunctionDescriptor.of(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS),
+                nativeApi.arena);
+        return moduleLoaderStub;
+    }
+
+    @SuppressWarnings("unused")
+    private MemorySegment moduleNormalizeDispatch(
+            MemorySegment callbackContext,
+            MemorySegment callbackModuleBaseName,
+            MemorySegment callbackModuleName,
+            MemorySegment callbackOpaque) {
+        if (moduleNormalizeFunction == null) {
+            return MemorySegment.NULL;
+        }
+        JsContext context = new JsContext(nativeApi, callbackContext, true);
+        String moduleBaseName = cStringToJava(callbackModuleBaseName);
+        String moduleName = cStringToJava(callbackModuleName);
+        MemorySegment normalized = moduleNormalizeFunction.normalize(context, moduleBaseName, moduleName);
+        return normalized == null ? MemorySegment.NULL : normalized;
+    }
+
+    @SuppressWarnings("unused")
+    private MemorySegment moduleLoaderDispatch(
+            MemorySegment callbackContext,
+            MemorySegment callbackModuleName,
+            MemorySegment callbackOpaque) {
+        if (moduleLoaderFunction == null) {
+            return MemorySegment.NULL;
+        }
+        JsContext context = new JsContext(nativeApi, callbackContext, true);
+        String moduleName = cStringToJava(callbackModuleName);
+        JsModuleDef moduleDef = moduleLoaderFunction.load(context, moduleName);
+        return moduleDef == null ? MemorySegment.NULL : moduleDef.value();
+    }
+
+    private static String cStringToJava(MemorySegment ptr) {
+        if (ptr.equals(MemorySegment.NULL)) {
+            return "";
+        }
+        return ptr.reinterpret(Long.MAX_VALUE).getString(0);
+    }
+
+    private static MethodHandle bindInstanceDispatch(String methodName, MethodType methodType) {
+        try {
+            return MethodHandles.lookup().findVirtual(JsRuntime.class, methodName, methodType);
+        } catch (ReflectiveOperationException exception) {
+            throw new ExceptionInInitializerError(exception);
         }
     }
 }

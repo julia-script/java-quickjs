@@ -48,10 +48,9 @@ class JsContextApiTest {
 
     @Test
     void intrinsicAndFunctionProtoHelpersWorkWhenAvailable() {
-        if (context.nativeApi.addIntrinsicJSONHandle == null || context.nativeApi.getFunctionProtoHandle == null) {
+        if (context.nativeApi.getFunctionProtoHandle == null) {
             return;
         }
-        context.addIntrinsicJSON();
         try (JsValue parsed = eval("JSON.parse('{\"a\":7}').a");
                 JsValue fnProto = context.getFunctionProto()) {
             assertThat(parsed.toInt32()).isEqualTo(7);

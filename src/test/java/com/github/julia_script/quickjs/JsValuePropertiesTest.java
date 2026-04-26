@@ -1,7 +1,9 @@
 package com.github.julia_script.quickjs;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -49,10 +51,30 @@ class JsValuePropertiesTest extends QuickJsIntegrationTestBase {
     }
 
     @Test
+    void ownPropertyNamesIterableYieldsEnumerableStringKeys() {
+        try (JsValue obj = eval("({ a: 1, b: 2 })")) {
+            try (OwnPropertyNames names = obj.getOwnPropertyNames(GetPropertyNamesFlags.ENUM_STRINGS)) {
+                assertThat(names.length()).isEqualTo(2);
+                Set<String> keys = new HashSet<>();
+                for (PropertyEnum pe : names) {
+                    assertThat(pe.enumerable()).isTrue();
+                    try (Atom atom = pe.atom()) {
+                        try (JsValue strVal = atom.toStringValue()) {
+                            keys.add(strVal.toJavaString());
+                        }
+                    }
+                }
+                assertThat(keys).containsExactlyInAnyOrder("a", "b");
+            }
+        }
+    }
+
+    @Test
     void ownPropertyNamesAndObjectShapeMethodsWork() {
         try (JsValue obj = eval("({ a: 1, b: 2 })")) {
-            assertThatThrownBy(() -> obj.getOwnPropertyNames(GetPropertyNamesFlags.STRINGS))
-                    .isInstanceOf(IllegalStateException.class);
+            try (OwnPropertyNames stringKeys = obj.getOwnPropertyNames(GetPropertyNamesFlags.STRINGS)) {
+                assertThat(stringKeys.length()).isEqualTo(2);
+            }
 
             assertThat(obj.getLength()).isGreaterThanOrEqualTo(0L);
             assertThat(obj.isExtensible()).isTrue();

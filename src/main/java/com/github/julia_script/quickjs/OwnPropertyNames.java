@@ -3,13 +3,13 @@ package com.github.julia_script.quickjs;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
-public final class OwnPropertyNames implements AutoCloseable {
+public final class OwnPropertyNames implements AutoCloseable, Iterable<PropertyEnum> {
     private static final MemoryLayout ENTRY_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_BOOLEAN.withName("is_enumerable"),
-            MemoryLayout.paddingLayout(24),
+            MemoryLayout.paddingLayout(3),
             ValueLayout.JAVA_INT.withName("atom"));
 
     private final QuickJsNative nativeApi;
@@ -21,8 +21,13 @@ public final class OwnPropertyNames implements AutoCloseable {
     public OwnPropertyNames(QuickJsNative nativeApi, MemorySegment contextPtr, MemorySegment entries, int length) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
-        this.entries = entries;
         this.length = length;
+        if (entries.equals(MemorySegment.NULL)) {
+            this.entries = MemorySegment.NULL;
+        } else {
+            long bytes = (long) length * ENTRY_LAYOUT.byteSize();
+            this.entries = entries.reinterpret(bytes);
+        }
     }
 
     public int length() {
@@ -30,20 +35,9 @@ public final class OwnPropertyNames implements AutoCloseable {
         return length;
     }
 
-    public List<PropertyEnum> toList() {
-        ensureOpen();
-        List<PropertyEnum> list = new ArrayList<>(length);
-        long stride = ENTRY_LAYOUT.byteSize();
-        for (int i = 0; i < length; i++) {
-            MemorySegment entry = entries.asSlice((long) i * stride, stride);
-            boolean enumerable = entry.get(ValueLayout.JAVA_BOOLEAN, 0);
-            int atomValue = entry.get(ValueLayout.JAVA_INT, 4);
-            Atom tempAtom = new Atom(nativeApi, contextPtr, atomValue);
-            Atom ownedAtom = tempAtom.dup();
-            tempAtom.close();
-            list.add(new PropertyEnum(enumerable, ownedAtom));
-        }
-        return list;
+    @Override
+    public Iterator<PropertyEnum> iterator() {
+        return new PropertyEnumIterator();
     }
 
     @Override
@@ -62,6 +56,36 @@ public final class OwnPropertyNames implements AutoCloseable {
     private void ensureOpen() {
         if (closed) {
             throw new IllegalStateException("OwnPropertyNames is already closed");
+        }
+    }
+
+    private final class PropertyEnumIterator implements Iterator<PropertyEnum> {
+        private final long stride = ENTRY_LAYOUT.byteSize();
+        private int index;
+
+        @Override
+        public boolean hasNext() {
+            ensureOpen();
+            return index < length;
+        }
+
+        @Override
+        public PropertyEnum next() {
+            ensureOpen();
+            if (index >= length) {
+                throw new NoSuchElementException();
+            }
+            MemorySegment entry = entries.asSlice((long) index * stride, stride);
+            boolean enumerable = entry.get(ValueLayout.JAVA_BOOLEAN, 0);
+            int atomValue = entry.get(ValueLayout.JAVA_INT, 4);
+            int dupValue;
+            try {
+                dupValue = (int) nativeApi.dupAtomHandle.invokeExact(contextPtr, atomValue);
+            } catch (Throwable throwable) {
+                throw new IllegalStateException("Failed to call JS_DupAtom", throwable);
+            }
+            index++;
+            return new PropertyEnum(enumerable, new Atom(nativeApi, contextPtr, dupValue));
         }
     }
 }

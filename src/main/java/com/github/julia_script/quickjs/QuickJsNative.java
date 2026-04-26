@@ -146,6 +146,31 @@ public final class QuickJsNative {
     final MethodHandle isRegisteredClassHandle;
     final MethodHandle setClassProtoHandle;
     final MethodHandle getClassProtoHandle;
+    final MethodHandle newContextRawHandle;
+    final MethodHandle getRuntimeHandle;
+    final MethodHandle getGlobalObjectHandle;
+    final MethodHandle resetUncatchableErrorHandle;
+    final MethodHandle evalFunctionHandle;
+    final MethodHandle dupContextHandle;
+    final MethodHandle getContextOpaqueHandle;
+    final MethodHandle setContextOpaqueHandle;
+    final MethodHandle addIntrinsicBaseObjectsHandle;
+    final MethodHandle addIntrinsicDateHandle;
+    final MethodHandle addIntrinsicEvalHandle;
+    final MethodHandle addIntrinsicRegExpCompilerHandle;
+    final MethodHandle addIntrinsicRegExpHandle;
+    final MethodHandle addIntrinsicJSONHandle;
+    final MethodHandle addIntrinsicProxyHandle;
+    final MethodHandle addIntrinsicMapSetHandle;
+    final MethodHandle addIntrinsicTypedArraysHandle;
+    final MethodHandle addIntrinsicPromiseHandle;
+    final MethodHandle addIntrinsicBigIntHandle;
+    final MethodHandle addIntrinsicWeakRefHandle;
+    final MethodHandle addPerformanceHandle;
+    final MethodHandle addIntrinsicDOMExceptionHandle;
+    final MethodHandle getFunctionProtoHandle;
+    final MethodHandle loadModuleHandle;
+    final MethodHandle getScriptOrModuleNameHandle;
 
     public QuickJsNative() {
         this(resolveNativeLibraryPath());
@@ -900,6 +925,135 @@ public final class QuickJsNative {
                         JS_VALUE_LAYOUT,
                         ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT));
+        this.newContextRawHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_NewContextRaw",
+                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.getRuntimeHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetRuntime",
+                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.getGlobalObjectHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetGlobalObject",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS));
+        this.resetUncatchableErrorHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_ResetUncatchableError",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        this.evalFunctionHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_EvalFunction",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS, JS_VALUE_LAYOUT));
+        this.dupContextHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_DupContext",
+                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.getContextOpaqueHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetContextOpaque",
+                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.setContextOpaqueHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetContextOpaque",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.addIntrinsicBaseObjectsHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicBaseObjects",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicDateHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicDate",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicEvalHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicEval",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicRegExpCompilerHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicRegExpCompiler",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        this.addIntrinsicRegExpHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicRegExp",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicJSONHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicJSON",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicProxyHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicProxy",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicMapSetHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicMapSet",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicTypedArraysHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicTypedArrays",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicPromiseHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicPromise",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicBigIntHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicBigInt",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicWeakRefHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicWeakRef",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addPerformanceHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddPerformance",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.addIntrinsicDOMExceptionHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddIntrinsicDOMException",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.getFunctionProtoHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetFunctionProto",
+                FunctionDescriptor.of(JS_VALUE_LAYOUT, ValueLayout.ADDRESS));
+        this.loadModuleHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_LoadModule",
+                FunctionDescriptor.of(
+                        JS_VALUE_LAYOUT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.getScriptOrModuleNameHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetScriptOrModuleName",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
     }
 
     public void closeArena() {
@@ -909,6 +1063,16 @@ public final class QuickJsNative {
     private static MemorySegment findRequired(SymbolLookup lookup, String symbolName) {
         return lookup.find(symbolName)
                 .orElseThrow(() -> new IllegalStateException("Missing symbol: " + symbolName));
+    }
+
+    private static MethodHandle downcallOptional(
+            Linker linker,
+            SymbolLookup lookup,
+            String symbolName,
+            FunctionDescriptor descriptor) {
+        return lookup.find(symbolName)
+                .map(symbol -> linker.downcallHandle(symbol, descriptor))
+                .orElse(null);
     }
 
     private static Path resolveNativeLibraryPath() {

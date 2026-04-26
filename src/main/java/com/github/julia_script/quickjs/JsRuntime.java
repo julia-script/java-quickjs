@@ -35,6 +35,22 @@ public final class JsRuntime implements AutoCloseable {
         }
     }
 
+    public JsContext newContextRaw() {
+        ensureOpen();
+        if (nativeApi.newContextRawHandle == null) {
+            throw new UnsupportedOperationException("JS_NewContextRaw is not available in this QuickJS build");
+        }
+        try {
+            MemorySegment contextPtr = (MemorySegment) nativeApi.newContextRawHandle.invokeExact(runtimePtr);
+            if (contextPtr.equals(MemorySegment.NULL)) {
+                throw new IllegalStateException("JS_NewContextRaw returned null");
+            }
+            return new JsContext(nativeApi, contextPtr);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_NewContextRaw", throwable);
+        }
+    }
+
     public int newClassId() {
         ensureOpen();
         MemorySegment out = nativeApi.arena.allocate(ValueLayout.JAVA_INT);

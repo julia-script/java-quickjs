@@ -63,6 +63,29 @@ public final class JsContext implements AutoCloseable {
         }
     }
 
+    public MemorySegment getRuntimePtr() {
+        ensureOpen();
+        requireSupported(nativeApi.getRuntimeHandle, "JS_GetRuntime");
+        try {
+            return (MemorySegment) nativeApi.getRuntimeHandle.invokeExact(contextPtr);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_GetRuntime", throwable);
+        }
+    }
+
+    public JsValue getGlobalObject() {
+        ensureOpen();
+        requireSupported(nativeApi.getGlobalObjectHandle, "JS_GetGlobalObject");
+        try {
+            MemorySegment result = (MemorySegment) nativeApi.getGlobalObjectHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr);
+            return new JsValue(nativeApi, contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_GetGlobalObject", throwable);
+        }
+    }
+
     public JsValue throwOutOfMemory() {
         ensureOpen();
         try {
@@ -72,6 +95,44 @@ public final class JsContext implements AutoCloseable {
             return new JsValue(nativeApi, contextPtr, result);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_ThrowOutOfMemory", throwable);
+        }
+    }
+
+    public void resetUncatchableError() {
+        ensureOpen();
+        requireSupported(nativeApi.resetUncatchableErrorHandle, "JS_ResetUncatchableError");
+        try {
+            nativeApi.resetUncatchableErrorHandle.invokeExact(contextPtr);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_ResetUncatchableError", throwable);
+        }
+    }
+
+    public JsValue evalFunction(JsValue functionObject) {
+        ensureOpen();
+        requireSupported(nativeApi.evalFunctionHandle, "JS_EvalFunction");
+        try {
+            MemorySegment result = (MemorySegment) nativeApi.evalFunctionHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr,
+                    functionObject.value());
+            return new JsValue(nativeApi, contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_EvalFunction", throwable);
+        }
+    }
+
+    public JsContext dup() {
+        ensureOpen();
+        requireSupported(nativeApi.dupContextHandle, "JS_DupContext");
+        try {
+            MemorySegment result = (MemorySegment) nativeApi.dupContextHandle.invokeExact(contextPtr);
+            if (result.equals(MemorySegment.NULL)) {
+                throw new IllegalStateException("JS_DupContext returned null");
+            }
+            return new JsContext(nativeApi, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_DupContext", throwable);
         }
     }
 
@@ -129,6 +190,128 @@ public final class JsContext implements AutoCloseable {
         }
     }
 
+    public MemorySegment getOpaque() {
+        ensureOpen();
+        requireSupported(nativeApi.getContextOpaqueHandle, "JS_GetContextOpaque");
+        try {
+            return (MemorySegment) nativeApi.getContextOpaqueHandle.invokeExact(contextPtr);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_GetContextOpaque", throwable);
+        }
+    }
+
+    public void setOpaque(MemorySegment opaquePointer) {
+        ensureOpen();
+        requireSupported(nativeApi.setContextOpaqueHandle, "JS_SetContextOpaque");
+        try {
+            nativeApi.setContextOpaqueHandle.invokeExact(contextPtr, opaquePointer);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_SetContextOpaque", throwable);
+        }
+    }
+
+    public void addIntrinsicBaseObjects() {
+        invokeIntrinsic(nativeApi.addIntrinsicBaseObjectsHandle, "JS_AddIntrinsicBaseObjects");
+    }
+
+    public void addIntrinsicDate() {
+        invokeIntrinsic(nativeApi.addIntrinsicDateHandle, "JS_AddIntrinsicDate");
+    }
+
+    public void addIntrinsicEval() {
+        invokeIntrinsic(nativeApi.addIntrinsicEvalHandle, "JS_AddIntrinsicEval");
+    }
+
+    public void addIntrinsicRegExpCompiler() {
+        ensureOpen();
+        requireSupported(nativeApi.addIntrinsicRegExpCompilerHandle, "JS_AddIntrinsicRegExpCompiler");
+        try {
+            nativeApi.addIntrinsicRegExpCompilerHandle.invokeExact(contextPtr);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_AddIntrinsicRegExpCompiler", throwable);
+        }
+    }
+
+    public void addIntrinsicRegExp() {
+        invokeIntrinsic(nativeApi.addIntrinsicRegExpHandle, "JS_AddIntrinsicRegExp");
+    }
+
+    public void addIntrinsicJSON() {
+        invokeIntrinsic(nativeApi.addIntrinsicJSONHandle, "JS_AddIntrinsicJSON");
+    }
+
+    public void addIntrinsicProxy() {
+        invokeIntrinsic(nativeApi.addIntrinsicProxyHandle, "JS_AddIntrinsicProxy");
+    }
+
+    public void addIntrinsicMapSet() {
+        invokeIntrinsic(nativeApi.addIntrinsicMapSetHandle, "JS_AddIntrinsicMapSet");
+    }
+
+    public void addIntrinsicTypedArrays() {
+        invokeIntrinsic(nativeApi.addIntrinsicTypedArraysHandle, "JS_AddIntrinsicTypedArrays");
+    }
+
+    public void addIntrinsicPromise() {
+        invokeIntrinsic(nativeApi.addIntrinsicPromiseHandle, "JS_AddIntrinsicPromise");
+    }
+
+    public void addIntrinsicBigInt() {
+        invokeIntrinsic(nativeApi.addIntrinsicBigIntHandle, "JS_AddIntrinsicBigInt");
+    }
+
+    public void addIntrinsicWeakRef() {
+        invokeIntrinsic(nativeApi.addIntrinsicWeakRefHandle, "JS_AddIntrinsicWeakRef");
+    }
+
+    public void addPerformance() {
+        invokeIntrinsic(nativeApi.addPerformanceHandle, "JS_AddPerformance");
+    }
+
+    public void addIntrinsicDOMException() {
+        invokeIntrinsic(nativeApi.addIntrinsicDOMExceptionHandle, "JS_AddIntrinsicDOMException");
+    }
+
+    public JsValue getFunctionProto() {
+        ensureOpen();
+        requireSupported(nativeApi.getFunctionProtoHandle, "JS_GetFunctionProto");
+        try {
+            MemorySegment result = (MemorySegment) nativeApi.getFunctionProtoHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr);
+            return new JsValue(nativeApi, contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_GetFunctionProto", throwable);
+        }
+    }
+
+    public JsValue loadModule(String basename, String filename) {
+        ensureOpen();
+        requireSupported(nativeApi.loadModuleHandle, "JS_LoadModule");
+        MemorySegment basenameC = nativeApi.arena.allocateFrom(basename);
+        MemorySegment filenameC = nativeApi.arena.allocateFrom(filename);
+        try {
+            MemorySegment result = (MemorySegment) nativeApi.loadModuleHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr,
+                    basenameC,
+                    filenameC);
+            return new JsValue(nativeApi, contextPtr, result);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_LoadModule", throwable);
+        }
+    }
+
+    public int getScriptOrModuleName(int stackLevels) {
+        ensureOpen();
+        requireSupported(nativeApi.getScriptOrModuleNameHandle, "JS_GetScriptOrModuleName");
+        try {
+            return (int) nativeApi.getScriptOrModuleNameHandle.invokeExact(contextPtr, stackLevels);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_GetScriptOrModuleName", throwable);
+        }
+    }
+
     @Override
     public void close() {
         if (closed) {
@@ -159,6 +342,25 @@ public final class JsContext implements AutoCloseable {
             return new JsValue(nativeApi, contextPtr, result);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call " + name, throwable);
+        }
+    }
+
+    private void invokeIntrinsic(java.lang.invoke.MethodHandle handle, String name) {
+        ensureOpen();
+        requireSupported(handle, name);
+        try {
+            int result = (int) handle.invokeExact(contextPtr);
+            if (result < 0) {
+                throw new IllegalStateException(name + " failed");
+            }
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call " + name, throwable);
+        }
+    }
+
+    private void requireSupported(java.lang.invoke.MethodHandle handle, String name) {
+        if (handle == null) {
+            throw new UnsupportedOperationException(name + " is not available in this QuickJS build");
         }
     }
 }

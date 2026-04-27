@@ -1355,7 +1355,7 @@ public final class JsValue implements AutoCloseable {
 
     public JsModuleDef toModuleDef() {
         try {
-            return new JsModuleDef(nativeApi, this.value);
+            return new JsModuleDef(nativeApi, MemorySegment.ofAddress(this.getU()));
 
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_GetPropertyModuleDef", throwable);

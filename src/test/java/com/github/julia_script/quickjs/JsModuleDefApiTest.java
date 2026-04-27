@@ -3,6 +3,7 @@ package com.github.julia_script.quickjs;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -175,6 +176,47 @@ class JsModuleDefApiTest {
             assertThat(namespace.isObject()).isTrue();
             assertThat(foo.toInt32()).isEqualTo(10);
             assertThat(nsResult.toInt32()).isEqualTo(30);
+        }
+    }
+
+    @Test
+    void loaderCanCompileModuleAndConvertWithToModuleDef() {
+        requireModuleApi();
+        assertThat(runtime.nativeApi.setModuleLoaderFuncHandle)
+                .as("JS_SetModuleLoaderFunc binding")
+                .isNotNull();
+
+        AtomicInteger loaderCalls = new AtomicInteger();
+        runtime.setModuleLoaderFunc(null, (loadContext, moduleName) -> {
+            loaderCalls.incrementAndGet();
+            assertThat(moduleName).isEqualTo("b");
+
+            String code = "export function f(x){ return x + 1; }";
+            int compileOnlyModuleFlags = EvalFlags.TYPE_MODULE | EvalFlags.FLAG_COMPILE_ONLY;
+            try (JsValue compiled = loadContext.eval(
+                    code,
+                    code.getBytes(StandardCharsets.UTF_8).length,
+                    "b",
+                    compileOnlyModuleFlags)) {
+                assertThat(compiled.isException()).isFalse();
+                return compiled.toModuleDef();
+            }
+        });
+
+        String source = "import { f } from \"b\";\n"
+                + "globalThis.toModuleDefResult = f(41);";
+        try (JsValue result = context.eval(
+                source,
+                source.getBytes(StandardCharsets.UTF_8).length,
+                "<test>",
+                EvalFlags.TYPE_MODULE)) {
+            assertThat(result.isException()).isFalse();
+        }
+
+        assertThat(loaderCalls.get()).isEqualTo(1);
+        try (JsValue global = context.getGlobalObject();
+                JsValue moduleResult = global.getProperty("toModuleDefResult")) {
+            assertThat(moduleResult.toInt32()).isEqualTo(42);
         }
     }
 

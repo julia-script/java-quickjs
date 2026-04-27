@@ -65,11 +65,7 @@ class JsModuleDefApiTest {
                 return null;
             }
             JsModuleDef module = loadContext.newCModule(moduleName, (initContext, moduleDef) -> {
-                JsValue value = initContext.eval(
-                        "123",
-                        3,
-                        "<module-init>",
-                        QuickJsNative.JS_EVAL_TYPE_GLOBAL);
+                JsValue value = JsValue.newInt32(initContext, 123);
                 return moduleDef.setExport(initContext, "value", value);
             });
             if (!module.addExport(loadContext, "value")) {

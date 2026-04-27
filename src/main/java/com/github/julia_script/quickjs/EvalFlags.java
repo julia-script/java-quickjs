@@ -10,6 +10,9 @@ public final class EvalFlags {
     public static final int FLAG_STRIP = 1 << 4;
     public static final int FLAG_COMPILE_ONLY = 1 << 5;
     public static final int FLAG_BACKTRACE_BARRIER = 1 << 6;
+    public static final int FLAG_ASYNC = 1 << 7;
+
+
 
     private EvalFlags() {
     }

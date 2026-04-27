@@ -107,11 +107,15 @@ public final class JsValue implements AutoCloseable {
     }
 
     /**
-     * Java host callback invoked by QuickJS when a host-backed function is called from JavaScript.
+     * Java host callback invoked by QuickJS when a host-backed function is called
+     * from JavaScript.
      * <p>
-     * Use this for all host/native function entry points created via {@code initHostFunction(...)}.
-     * The same callback shape is used for plain functions, magic/cproto variants, data-bound
-     * functions, and closure functions. Unused optional inputs are provided as {@code null}
+     * Use this for all host/native function entry points created via
+     * {@code initHostFunction(...)}.
+     * The same callback shape is used for plain functions, magic/cproto variants,
+     * data-bound
+     * functions, and closure functions. Unused optional inputs are provided as
+     * {@code null}
      * or empty arrays as appropriate.
      */
     @FunctionalInterface
@@ -119,13 +123,17 @@ public final class JsValue implements AutoCloseable {
         /**
          * Executes a host function call.
          *
-         * @param context active JavaScript context for the call
-         * @param thisValue JavaScript {@code this} value
-         * @param args call arguments (empty when no args are passed)
-         * @param magic optional magic value for magic/cproto variants, otherwise {@code null}
-         * @param functionData optional captured data values for data variants, otherwise empty
-         * @param opaque optional opaque pointer for closure variants, otherwise {@link MemorySegment#NULL}
-         * @return a JavaScript value result; returning {@code null} maps to JS {@code undefined}
+         * @param context      active JavaScript context for the call
+         * @param thisValue    JavaScript {@code this} value
+         * @param args         call arguments (empty when no args are passed)
+         * @param magic        optional magic value for magic/cproto variants, otherwise
+         *                     {@code null}
+         * @param functionData optional captured data values for data variants,
+         *                     otherwise empty
+         * @param opaque       optional opaque pointer for closure variants, otherwise
+         *                     {@link MemorySegment#NULL}
+         * @return a JavaScript value result; returning {@code null} maps to JS
+         *         {@code undefined}
          */
         JsValue call(
                 JsContext context,
@@ -139,7 +147,8 @@ public final class JsValue implements AutoCloseable {
     /**
      * Finalizer for opaque data used by closure-style host functions.
      * <p>
-     * This runs when QuickJS disposes the closure and gives your code a chance to clean up
+     * This runs when QuickJS disposes the closure and gives your code a chance to
+     * clean up
      * resources associated with the opaque pointer.
      */
     @FunctionalInterface
@@ -147,7 +156,8 @@ public final class JsValue implements AutoCloseable {
         /**
          * Cleans up closure opaque state.
          *
-         * @param opaque opaque pointer originally passed to {@code initHostFunction(..., opaque, ...)}
+         * @param opaque opaque pointer originally passed to
+         *               {@code initHostFunction(..., opaque, ...)}
          */
         void finalizeOpaque(MemorySegment opaque);
     }
@@ -155,7 +165,8 @@ public final class JsValue implements AutoCloseable {
     /**
      * QuickJS host function calling convention/type.
      * <p>
-     * Most users should start with {@link #GENERIC}. Use other variants only when you need
+     * Most users should start with {@link #GENERIC}. Use other variants only when
+     * you need
      * constructor/getter/setter/iterator semantics or magic-enabled forms.
      */
     public enum HostFunctionType {
@@ -519,8 +530,10 @@ public final class JsValue implements AutoCloseable {
                     context.contextPtr,
                     resolvingFuncs);
             JsValue promiseValue = new JsValue(context.nativeApi, context.contextPtr, promise);
-            JsValue resolveValue = new JsValue(context.nativeApi, context.contextPtr, resolvingFuncs.asSlice(0, stride));
-            JsValue rejectValue = new JsValue(context.nativeApi, context.contextPtr, resolvingFuncs.asSlice(stride, stride));
+            JsValue resolveValue = new JsValue(context.nativeApi, context.contextPtr,
+                    resolvingFuncs.asSlice(0, stride));
+            JsValue rejectValue = new JsValue(context.nativeApi, context.contextPtr,
+                    resolvingFuncs.asSlice(stride, stride));
             return new JsPromiseCapability(promiseValue, resolveValue, rejectValue);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_NewPromiseCapability", throwable);
@@ -598,16 +611,18 @@ public final class JsValue implements AutoCloseable {
         if (value instanceof String stringValue) {
             return init(context, stringValue);
         }
-        throw new IllegalArgumentException("Unsupported Java value type for JsValue.init: " + value.getClass().getName());
+        throw new IllegalArgumentException(
+                "Unsupported Java value type for JsValue.init: " + value.getClass().getName());
     }
 
     /**
-     * Creates a standard host function using the default generic calling convention.
+     * Creates a standard host function using the default generic calling
+     * convention.
      *
-     * @param context active JavaScript context that will own the function
+     * @param context  active JavaScript context that will own the function
      * @param callback Java callback invoked when the JS function is called
-     * @param name function name exposed to JavaScript
-     * @param length expected argument count used as JS function {@code length}
+     * @param name     function name exposed to JavaScript
+     * @param length   expected argument count used as JS function {@code length}
      * @return created JavaScript function value
      */
     public static JsValue initHostFunction(JsContext context, HostFunctionCallback callback, String name, int length) {
@@ -617,15 +632,16 @@ public final class JsValue implements AutoCloseable {
     /**
      * Creates a host function with explicit QuickJS function type and magic value.
      * <p>
-     * Use this overload when you need constructor/getter/setter/iterator behavior or want
+     * Use this overload when you need constructor/getter/setter/iterator behavior
+     * or want
      * to pass a compact integer discriminator ({@code magic}) into the callback.
      *
-     * @param context active JavaScript context that will own the function
+     * @param context  active JavaScript context that will own the function
      * @param callback Java callback invoked when the JS function is called
-     * @param name function name exposed to JavaScript
-     * @param length expected argument count used as JS function {@code length}
-     * @param cproto QuickJS function type/calling convention
-     * @param magic integer value surfaced in callback {@code magic}
+     * @param name     function name exposed to JavaScript
+     * @param length   expected argument count used as JS function {@code length}
+     * @param cproto   QuickJS function type/calling convention
+     * @param magic    integer value surfaced in callback {@code magic}
      * @return created JavaScript function value
      */
     public static JsValue initHostFunction(
@@ -665,17 +681,20 @@ public final class JsValue implements AutoCloseable {
     }
 
     /**
-     * Creates a host function with explicit function type/magic and custom prototype object.
+     * Creates a host function with explicit function type/magic and custom
+     * prototype object.
      * <p>
-     * Use this when you need function behavior like the previous overload but must attach
-     * a specific prototype object (for example, constructor customization scenarios).
+     * Use this when you need function behavior like the previous overload but must
+     * attach
+     * a specific prototype object (for example, constructor customization
+     * scenarios).
      *
-     * @param context active JavaScript context that will own the function
-     * @param callback Java callback invoked when the JS function is called
-     * @param name function name exposed to JavaScript
-     * @param length expected argument count used as JS function {@code length}
-     * @param cproto QuickJS function type/calling convention
-     * @param magic integer value surfaced in callback {@code magic}
+     * @param context    active JavaScript context that will own the function
+     * @param callback   Java callback invoked when the JS function is called
+     * @param name       function name exposed to JavaScript
+     * @param length     expected argument count used as JS function {@code length}
+     * @param cproto     QuickJS function type/calling convention
+     * @param magic      integer value surfaced in callback {@code magic}
      * @param protoValue custom prototype value assigned to the function
      * @return created JavaScript function value
      */
@@ -718,13 +737,15 @@ public final class JsValue implements AutoCloseable {
     }
 
     /**
-     * Creates a host function that captures data values and makes them available to the callback.
+     * Creates a host function that captures data values and makes them available to
+     * the callback.
      *
-     * @param context active JavaScript context that will own the function
+     * @param context  active JavaScript context that will own the function
      * @param callback Java callback invoked when the JS function is called
-     * @param length expected argument count used as JS function {@code length}
-     * @param magic integer value surfaced in callback {@code magic}
-     * @param data captured JavaScript values exposed via callback {@code functionData}
+     * @param length   expected argument count used as JS function {@code length}
+     * @param magic    integer value surfaced in callback {@code magic}
+     * @param data     captured JavaScript values exposed via callback
+     *                 {@code functionData}
      * @return created JavaScript function value
      */
     public static JsValue initHostFunction(
@@ -734,7 +755,8 @@ public final class JsValue implements AutoCloseable {
             int magic,
             JsValue[] data) {
         requireSupported(context.nativeApi.newCFunctionDataHandle, "JS_NewCFunctionData");
-        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, data.length);
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null,
+                data.length);
         MethodHandle dispatch = CFUNCTION_DATA_DISPATCH_HANDLE.bindTo(registration);
         MemorySegment callbackStub = context.createUpcallStub(
                 dispatch,
@@ -766,12 +788,13 @@ public final class JsValue implements AutoCloseable {
     /**
      * Creates a named host function with captured data values.
      *
-     * @param context active JavaScript context that will own the function
+     * @param context  active JavaScript context that will own the function
      * @param callback Java callback invoked when the JS function is called
-     * @param name function name exposed to JavaScript
-     * @param length expected argument count used as JS function {@code length}
-     * @param magic integer value surfaced in callback {@code magic}
-     * @param data captured JavaScript values exposed via callback {@code functionData}
+     * @param name     function name exposed to JavaScript
+     * @param length   expected argument count used as JS function {@code length}
+     * @param magic    integer value surfaced in callback {@code magic}
+     * @param data     captured JavaScript values exposed via callback
+     *                 {@code functionData}
      * @return created JavaScript function value
      */
     public static JsValue initHostFunction(
@@ -782,7 +805,8 @@ public final class JsValue implements AutoCloseable {
             int magic,
             JsValue[] data) {
         requireSupported(context.nativeApi.newCFunctionData2Handle, "JS_NewCFunctionData2");
-        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, data.length);
+        HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null,
+                data.length);
         MethodHandle dispatch = CFUNCTION_DATA_DISPATCH_HANDLE.bindTo(registration);
         MemorySegment callbackStub = context.createUpcallStub(
                 dispatch,
@@ -816,15 +840,16 @@ public final class JsValue implements AutoCloseable {
     /**
      * Creates a closure-style host function with an opaque pointer.
      * <p>
-     * Use this when callback state is represented by native/opaque memory and you do not need
+     * Use this when callback state is represented by native/opaque memory and you
+     * do not need
      * a custom finalizer.
      *
-     * @param context active JavaScript context that will own the function
+     * @param context  active JavaScript context that will own the function
      * @param callback Java callback invoked when the JS function is called
-     * @param name function name exposed to JavaScript
-     * @param length expected argument count used as JS function {@code length}
-     * @param magic integer value surfaced in callback {@code magic}
-     * @param opaque user-provided opaque pointer passed back to callback
+     * @param name     function name exposed to JavaScript
+     * @param length   expected argument count used as JS function {@code length}
+     * @param magic    integer value surfaced in callback {@code magic}
+     * @param opaque   user-provided opaque pointer passed back to callback
      * @return created JavaScript function value
      */
     public static JsValue initHostFunction(
@@ -838,18 +863,21 @@ public final class JsValue implements AutoCloseable {
     }
 
     /**
-     * Creates a closure-style host function with opaque pointer and optional finalizer.
+     * Creates a closure-style host function with opaque pointer and optional
+     * finalizer.
      * <p>
-     * Use this when callback state lives outside the Java object graph and requires explicit
+     * Use this when callback state lives outside the Java object graph and requires
+     * explicit
      * cleanup when QuickJS disposes the function object.
      *
-     * @param context active JavaScript context that will own the function
-     * @param callback Java callback invoked when the JS function is called
-     * @param name function name exposed to JavaScript
-     * @param length expected argument count used as JS function {@code length}
-     * @param magic integer value surfaced in callback {@code magic}
-     * @param opaque user-provided opaque pointer passed back to callback
-     * @param finalizer optional finalizer for cleaning opaque resources, or {@code null}
+     * @param context   active JavaScript context that will own the function
+     * @param callback  Java callback invoked when the JS function is called
+     * @param name      function name exposed to JavaScript
+     * @param length    expected argument count used as JS function {@code length}
+     * @param magic     integer value surfaced in callback {@code magic}
+     * @param opaque    user-provided opaque pointer passed back to callback
+     * @param finalizer optional finalizer for cleaning opaque resources, or
+     *                  {@code null}
      * @return created JavaScript function value
      */
     public static JsValue initHostFunction(
@@ -1325,6 +1353,15 @@ public final class JsValue implements AutoCloseable {
         }
     }
 
+    public JsModuleDef toModuleDef() {
+        try {
+            return new JsModuleDef(nativeApi, this.value);
+
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_GetPropertyModuleDef", throwable);
+        }
+    }
+
     public JsValue getPropertyAtom(int atom) {
         try {
             MemorySegment result = (MemorySegment) nativeApi.getPropertyHandle.invokeExact(
@@ -1760,7 +1797,8 @@ public final class JsValue implements AutoCloseable {
 
     public boolean definePropertyValueUint32(int index, JsValue val, int flags) {
         try {
-            int ret = (int) nativeApi.definePropertyValueUint32Handle.invokeExact(contextPtr, value, index, val.value, flags);
+            int ret = (int) nativeApi.definePropertyValueUint32Handle.invokeExact(contextPtr, value, index, val.value,
+                    flags);
             if (ret < 0) {
                 throw new IllegalStateException("JS_DefinePropertyValueUint32 failed");
             }
@@ -1773,7 +1811,8 @@ public final class JsValue implements AutoCloseable {
     public boolean definePropertyValueStr(String name, JsValue val, int flags) {
         try {
             MemorySegment cName = nativeApi.arena.allocateFrom(name);
-            int ret = (int) nativeApi.definePropertyValueStrHandle.invokeExact(contextPtr, value, cName, val.value, flags);
+            int ret = (int) nativeApi.definePropertyValueStrHandle.invokeExact(contextPtr, value, cName, val.value,
+                    flags);
             if (ret < 0) {
                 throw new IllegalStateException("JS_DefinePropertyValueStr failed");
             }
@@ -1961,7 +2000,8 @@ public final class JsValue implements AutoCloseable {
 
     public Optional<MemorySegment> getOpaque(JsContext context, int classId) {
         try {
-            MemorySegment ptr = (MemorySegment) nativeApi.getOpaque2Handle.invokeExact(context.contextPtr, value, classId);
+            MemorySegment ptr = (MemorySegment) nativeApi.getOpaque2Handle.invokeExact(context.contextPtr, value,
+                    classId);
             if (ptr.equals(MemorySegment.NULL)) {
                 return Optional.empty();
             }
@@ -2034,7 +2074,8 @@ public final class JsValue implements AutoCloseable {
         return segment;
     }
 
-    private static JsValue[] unpackArgs(QuickJsNative nativeApi, MemorySegment contextPtr, int argc, MemorySegment argvPtr) {
+    private static JsValue[] unpackArgs(QuickJsNative nativeApi, MemorySegment contextPtr, int argc,
+            MemorySegment argvPtr) {
         if (argc <= 0 || argvPtr.equals(MemorySegment.NULL)) {
             return new JsValue[0];
         }

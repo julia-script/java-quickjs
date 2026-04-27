@@ -181,6 +181,27 @@ public final class QuickJsNative {
     final MethodHandle getModuleNameHandle;
     final MethodHandle getModuleNamespaceHandle;
     final MethodHandle setModuleLoaderFuncHandle;
+    final MethodHandle setRuntimeInfoHandle;
+    final MethodHandle setMemoryLimitHandle;
+    final MethodHandle setMaxStackSizeHandle;
+    final MethodHandle updateStackTopHandle;
+    final MethodHandle setGCThresholdHandle;
+    final MethodHandle getGCThresholdHandle;
+    final MethodHandle runGCHandle;
+    final MethodHandle isLiveObjectHandle;
+    final MethodHandle getRuntimeOpaqueHandle;
+    final MethodHandle setRuntimeOpaqueHandle;
+    final MethodHandle setDumpFlagsHandle;
+    final MethodHandle getDumpFlagsHandle;
+    final MethodHandle setInterruptHandlerHandle;
+    final MethodHandle setCanBlockHandle;
+    final MethodHandle getClassNameHandle;
+    final MethodHandle isJobPendingHandle;
+    final MethodHandle executePendingJobHandle;
+    final MethodHandle computeMemoryUsageHandle;
+    final MethodHandle addRuntimeFinalizerHandle;
+    final MethodHandle setPromiseHookHandle;
+    final MethodHandle setHostPromiseRejectionTrackerHandle;
     /** QuickJS heap; required to return strings from {@code JSModuleNormalizeFunc}. */
     final MethodHandle jsMallocHandle;
     final MethodHandle newBoolHandle;
@@ -1188,6 +1209,132 @@ public final class QuickJsNative {
                 "JS_SetModuleLoaderFunc",
                 FunctionDescriptor.ofVoid(
                         ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.setRuntimeInfoHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetRuntimeInfo",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.setMemoryLimitHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetMemoryLimit",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.setMaxStackSizeHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetMaxStackSize",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.updateStackTopHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_UpdateStackTop",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        this.setGCThresholdHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetGCThreshold",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.getGCThresholdHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetGCThreshold",
+                FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+        this.runGCHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_RunGC",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+        this.isLiveObjectHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_IsLiveObject",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, JS_VALUE_LAYOUT));
+        this.getRuntimeOpaqueHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetRuntimeOpaque",
+                FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.setRuntimeOpaqueHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetRuntimeOpaque",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+        this.setDumpFlagsHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetDumpFlags",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        this.getDumpFlagsHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetDumpFlags",
+                FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+        this.setInterruptHandlerHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetInterruptHandler",
+                FunctionDescriptor.ofVoid(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.setCanBlockHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetCanBlock",
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_BOOLEAN));
+        this.getClassNameHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_GetClassName",
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.JAVA_INT));
+        this.isJobPendingHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_IsJobPending",
+                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+        this.executePendingJobHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_ExecutePendingJob",
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.computeMemoryUsageHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_ComputeMemoryUsage",
+                FunctionDescriptor.ofVoid(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.addRuntimeFinalizerHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_AddRuntimeFinalizer",
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.setPromiseHookHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetPromiseHook",
+                FunctionDescriptor.ofVoid(
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS,
+                        ValueLayout.ADDRESS));
+        this.setHostPromiseRejectionTrackerHandle = downcallOptional(
+                linker,
+                lookup,
+                "JS_SetHostPromiseRejectionTracker",
+                FunctionDescriptor.ofVoid(
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS));

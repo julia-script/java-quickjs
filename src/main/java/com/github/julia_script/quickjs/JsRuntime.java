@@ -2,6 +2,7 @@ package com.github.julia_script.quickjs;
 
 import org.jspecify.annotations.Nullable;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemoryLayout;
@@ -178,6 +179,12 @@ public final class JsRuntime implements AutoCloseable {
 
     final QuickJsNative nativeApi;
     final MemorySegment runtimePtr;
+    /**
+     * Arena for native memory that must outlive {@link QuickJsNative#arena} during runtime teardown:
+     * {@link ClassDef} struct layout, C strings, and upcall stubs registered with QuickJS must stay valid
+     * until after {@code JS_FreeRuntime} returns.
+     */
+    final Arena classCallbackArena = Arena.ofShared();
     private MemorySegment moduleNormalizeStub = MemorySegment.NULL;
     private MemorySegment moduleLoaderStub = MemorySegment.NULL;
     private MemorySegment interruptHandlerStub = MemorySegment.NULL;
@@ -559,6 +566,7 @@ public final class JsRuntime implements AutoCloseable {
         } catch (Throwable throwable) {
             closeError = throwable;
         } finally {
+            classCallbackArena.close();
             nativeApi.closeArena();
         }
 

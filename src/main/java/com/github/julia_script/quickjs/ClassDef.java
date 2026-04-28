@@ -1,5 +1,6 @@
 package com.github.julia_script.quickjs;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemoryLayout;
@@ -227,7 +228,7 @@ public final class ClassDef {
 
     public static ClassDef allocate(JsRuntime runtime) {
         Objects.requireNonNull(runtime, "runtime");
-        return new ClassDef(runtime.nativeApi, runtime, runtime.nativeApi.arena.allocate(LAYOUT));
+        return new ClassDef(runtime.nativeApi, runtime, runtime.classCallbackArena.allocate(LAYOUT));
     }
 
     public MemorySegment className() {
@@ -241,7 +242,7 @@ public final class ClassDef {
 
     public void setClassName(String className) {
         Objects.requireNonNull(className, "className");
-        setClassName(nativeApi.arena.allocateFrom(className));
+        setClassName(allocationArena().allocateFrom(className));
     }
 
     public MemorySegment finalizer() {
@@ -255,6 +256,7 @@ public final class ClassDef {
     }
 
     public void setFinalizer(ClassFinalizer finalizer) {
+        requireRuntimeForCallbacks();
         this.classFinalizer = Objects.requireNonNull(finalizer, "finalizer");
         segment.set(ValueLayout.ADDRESS, FINALIZER_OFFSET, createFinalizerStub());
     }
@@ -270,6 +272,7 @@ public final class ClassDef {
     }
 
     public void setGcMark(ClassGcMark gcMark) {
+        requireRuntimeForCallbacks();
         this.classGcMark = Objects.requireNonNull(gcMark, "gcMark");
         segment.set(ValueLayout.ADDRESS, GC_MARK_OFFSET, createGcMarkStub());
     }
@@ -285,6 +288,7 @@ public final class ClassDef {
     }
 
     public void setCall(ClassCall call) {
+        requireRuntimeForCallbacks();
         this.classCall = Objects.requireNonNull(call, "call");
         segment.set(ValueLayout.ADDRESS, CALL_OFFSET, createCallStub());
     }
@@ -301,8 +305,9 @@ public final class ClassDef {
     }
 
     public void setExotic(ExoticMethods exoticMethods) {
+        requireRuntimeForCallbacks();
         this.exoticMethods = Objects.requireNonNull(exoticMethods, "exoticMethods");
-        this.exoticSegment = nativeApi.arena.allocate(EXOTIC_LAYOUT);
+        this.exoticSegment = allocationArena().allocate(EXOTIC_LAYOUT);
         exoticSegment.set(
                 ValueLayout.ADDRESS,
                 GET_OWN_PROPERTY_OFFSET,
@@ -344,7 +349,8 @@ public final class ClassDef {
                 FunctionDescriptor.ofVoid(
                         ValueLayout.ADDRESS,
                         QuickJsNative.JS_VALUE_LAYOUT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
         callbackRegistrations.add(classFinalizer);
         return stub;
     }
@@ -356,7 +362,8 @@ public final class ClassDef {
                         ValueLayout.ADDRESS,
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.ADDRESS),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
         callbackRegistrations.add(classGcMark);
         return stub;
     }
@@ -372,13 +379,14 @@ public final class ClassDef {
                         ValueLayout.JAVA_INT,
                         ValueLayout.ADDRESS,
                         ValueLayout.JAVA_INT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
         callbackRegistrations.add(classCall);
         return stub;
     }
 
     private MemorySegment createGetOwnPropertyStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 GET_OWN_PROPERTY_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         ValueLayout.JAVA_INT,
@@ -386,11 +394,13 @@ public final class ClassDef {
                         ValueLayout.ADDRESS,
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.JAVA_INT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     private MemorySegment createGetOwnPropertyNamesStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 GET_OWN_PROPERTY_NAMES_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         ValueLayout.JAVA_INT,
@@ -398,22 +408,26 @@ public final class ClassDef {
                         ValueLayout.ADDRESS,
                         ValueLayout.ADDRESS,
                         QuickJsNative.JS_VALUE_LAYOUT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     private MemorySegment createDeletePropertyStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 DELETE_PROPERTY_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         ValueLayout.JAVA_INT,
                         ValueLayout.ADDRESS,
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.JAVA_INT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     private MemorySegment createDefineOwnPropertyStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 DEFINE_OWN_PROPERTY_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         ValueLayout.JAVA_INT,
@@ -424,22 +438,26 @@ public final class ClassDef {
                         QuickJsNative.JS_VALUE_LAYOUT,
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.JAVA_INT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     private MemorySegment createHasPropertyStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 HAS_PROPERTY_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         ValueLayout.JAVA_INT,
                         ValueLayout.ADDRESS,
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.JAVA_INT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     private MemorySegment createGetPropertyStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 GET_PROPERTY_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         QuickJsNative.JS_VALUE_LAYOUT,
@@ -447,11 +465,13 @@ public final class ClassDef {
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.JAVA_INT,
                         QuickJsNative.JS_VALUE_LAYOUT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     private MemorySegment createSetPropertyStub() {
-        return Linker.nativeLinker().upcallStub(
+        MemorySegment stub = Linker.nativeLinker().upcallStub(
                 SET_PROPERTY_DISPATCH_HANDLE.bindTo(this),
                 FunctionDescriptor.of(
                         ValueLayout.JAVA_INT,
@@ -461,7 +481,9 @@ public final class ClassDef {
                         QuickJsNative.JS_VALUE_LAYOUT,
                         QuickJsNative.JS_VALUE_LAYOUT,
                         ValueLayout.JAVA_INT),
-                nativeApi.arena);
+                allocationArena());
+        callbackRegistrations.add(stub);
+        return stub;
     }
 
     @SuppressWarnings("unused")
@@ -646,6 +668,16 @@ public final class ClassDef {
             return MethodHandles.lookup().findVirtual(ClassDef.class, methodName, methodType);
         } catch (ReflectiveOperationException exception) {
             throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private Arena allocationArena() {
+        return runtime != null ? runtime.classCallbackArena : nativeApi.arena;
+    }
+
+    private void requireRuntimeForCallbacks() {
+        if (runtime == null) {
+            throw new IllegalStateException("Java class callbacks require ClassDef.allocate(JsRuntime)");
         }
     }
 }

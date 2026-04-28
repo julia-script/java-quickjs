@@ -249,10 +249,13 @@ public final class JsRuntime implements AutoCloseable {
         }
     }
 
-    public void newClass(int classId, MemorySegment classDef) {
+    public void newClass(int classId, ClassDef classDef) {
         ensureOpen();
+        if (classDef == null) {
+            throw new NullPointerException("classDef");
+        }
         try {
-            int ret = (int) nativeApi.newClassHandle.invokeExact(runtimePtr, classId, classDef);
+            int ret = (int) nativeApi.newClassHandle.invokeExact(runtimePtr, classId, classDef.segment());
             if (ret != 0) {
                 throw new IllegalStateException("JS_NewClass failed");
             }

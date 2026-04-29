@@ -221,6 +221,12 @@ tasks.named("compileJava") {
 tasks.withType<Test>().configureEach {
     dependsOn(nativeBuildTasks.getValue(hostTarget))
     useJUnitPlatform()
+    // Native/FFM callbacks can leak cross-class state in a long-lived worker; isolate each
+    // test class in CI to avoid cumulative heap corruption while root-cause debugging continues.
+    if (providers.environmentVariable("CI").isPresent) {
+        forkEvery = 1
+        maxParallelForks = 1
+    }
     jvmArgs(
         "--enable-native-access=ALL-UNNAMED",
         "-Dquickjs.native.target=$hostTargetId",

@@ -452,7 +452,10 @@ public final class JsContext implements AutoCloseable {
                     JsValue messageValue = JsValue.newString(this, message)) {
                 created = constructor.callConstructor(new JsValue[] { messageValue });
                 if (created.isException()) {
-                    return created;
+                    // Must clear before return: finally would otherwise JS_FreeValue the same value we return.
+                    JsValue exception = created;
+                    created = null;
+                    return exception;
                 }
 
                 // JS_Throw takes ownership of the provided exception object.

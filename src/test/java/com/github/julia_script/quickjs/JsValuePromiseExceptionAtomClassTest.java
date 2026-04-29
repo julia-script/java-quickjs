@@ -83,31 +83,44 @@ class JsValuePromiseExceptionAtomClassTest extends QuickJsIntegrationTestBase {
     @Test
     void exoticPropertyCallbacksAreInvokedFromJs() {
         int classId = runtime.newClassId();
-        AtomicInteger hasPropertyCount = new AtomicInteger();
+        AtomicInteger getOwnPropertyCount = new AtomicInteger();
 
-        ClassDef classDef = ClassDef.allocate(runtime);
-        classDef.setClassName("ExoticFromJava");
-        classDef.setExotic(new ClassDef.ExoticMethods(
-                null,
-                null,
-                null,
-                null,
-                (callbackContext, object, atom) -> {
-                    hasPropertyCount.incrementAndGet();
-                    try (Atom answerAtom = Atom.ofString(callbackContext, "answer")) {
-                        return answerAtom.value() == atom ? 1 : 0;
-                    }
-                },
-                null,
-                null));
-        runtime.newClass(classId, classDef);
+        try (Atom answer = Atom.ofString(context, "answer");
+                Atom answerHeld = answer.dup()) {
+            final int answerAtomId = answerHeld.value();
 
-        try (JsValue exoticObject = JsValue.newObjectClass(context, classId);
-                JsValue global = context.getGlobalObject()) {
-            global.setProperty("exoticFromJava", exoticObject);
-            try (JsValue hasResult = eval("'answer' in exoticFromJava")) {
-                assertThat(hasResult.toBool()).isTrue();
-                assertThat(hasPropertyCount.get()).isGreaterThan(0);
+            ClassDef classDef = ClassDef.allocate(runtime);
+            classDef.setClassName("ExoticFromJava");
+            classDef.setExotic(new ClassDef.ExoticMethods(
+                    (callbackContext, descriptor, object, atom) -> {
+                        getOwnPropertyCount.incrementAndGet();
+                        if (atom != answerAtomId) {
+                            return 0;
+                        }
+                        if (!descriptor.equals(java.lang.foreign.MemorySegment.NULL)) {
+                            try (JsValue value = JsValue.undefinedValue(callbackContext)) {
+                                ClassDef.writeDataPropertyDescriptor(callbackContext, descriptor, value);
+                            }
+                        }
+                        return 1;
+                    },
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
+            runtime.newClass(classId, classDef);
+
+            try (JsValue exoticObject = JsValue.newObjectClass(context, classId);
+                    JsValue global = context.getGlobalObject()) {
+                global.setProperty("exoticFromJava", exoticObject);
+                try (JsValue hasResult = eval("'answer' in exoticFromJava");
+                        JsValue getResult = eval("exoticFromJava.answer")) {
+                    assertThat(hasResult.toBool()).isTrue();
+                    assertThat(getOwnPropertyCount.get()).isGreaterThan(0);
+                    assertThat(getResult.isUndefined()).isTrue();
+                }
             }
         }
     }

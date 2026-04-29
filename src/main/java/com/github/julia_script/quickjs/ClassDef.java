@@ -38,6 +38,31 @@ public final class ClassDef {
             ValueLayout.ADDRESS.withName("has_property"),
             ValueLayout.ADDRESS.withName("get_property"),
             ValueLayout.ADDRESS.withName("set_property"));
+    private static final MemoryLayout JS_PROPERTY_DESCRIPTOR_LAYOUT = MemoryLayout.structLayout(
+            ValueLayout.JAVA_INT.withName("flags"),
+            MemoryLayout.paddingLayout(4),
+            QuickJsNative.JS_VALUE_LAYOUT.withName("value"),
+            QuickJsNative.JS_VALUE_LAYOUT.withName("getter"),
+            QuickJsNative.JS_VALUE_LAYOUT.withName("setter"));
+    private static final long JS_PROPERTY_DESCRIPTOR_FLAGS_OFFSET =
+            JS_PROPERTY_DESCRIPTOR_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("flags"));
+    private static final long JS_PROPERTY_DESCRIPTOR_VALUE_OFFSET =
+            JS_PROPERTY_DESCRIPTOR_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("value"));
+    private static final long JS_PROPERTY_DESCRIPTOR_GETTER_OFFSET =
+            JS_PROPERTY_DESCRIPTOR_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("getter"));
+    private static final long JS_PROPERTY_DESCRIPTOR_SETTER_OFFSET =
+            JS_PROPERTY_DESCRIPTOR_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("setter"));
+
+    private static final int JS_PROP_CONFIGURABLE = 1 << 0;
+    private static final int JS_PROP_WRITABLE = 1 << 1;
+    private static final int JS_PROP_ENUMERABLE = 1 << 2;
+    private static final int JS_PROP_NORMAL = 0 << 4;
+    private static final int JS_PROP_HAS_CONFIGURABLE = 1 << 8;
+    private static final int JS_PROP_HAS_WRITABLE = 1 << 9;
+    private static final int JS_PROP_HAS_ENUMERABLE = 1 << 10;
+    private static final int JS_PROP_HAS_GET = 1 << 11;
+    private static final int JS_PROP_HAS_SET = 1 << 12;
+    private static final int JS_PROP_HAS_VALUE = 1 << 13;
     private static final long GET_OWN_PROPERTY_OFFSET =
             EXOTIC_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("get_own_property"));
     private static final long GET_OWN_PROPERTY_NAMES_OFFSET =
@@ -341,6 +366,35 @@ public final class ClassDef {
 
     MemorySegment segment() {
         return segment;
+    }
+
+    /**
+     * Writes a normal data property descriptor into {@code descriptor} (a {@code JSPropertyDescriptor*}).
+     */
+    public static void writeDataPropertyDescriptor(JsContext context, MemorySegment descriptor, JsValue value) {
+        Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(descriptor, "descriptor");
+        Objects.requireNonNull(value, "value");
+        MemorySegment desc = descriptor.reinterpret(JS_PROPERTY_DESCRIPTOR_LAYOUT.byteSize());
+        int flags = JS_PROP_CONFIGURABLE
+                | JS_PROP_WRITABLE
+                | JS_PROP_ENUMERABLE
+                | JS_PROP_NORMAL
+                | JS_PROP_HAS_CONFIGURABLE
+                | JS_PROP_HAS_WRITABLE
+                | JS_PROP_HAS_ENUMERABLE
+                | JS_PROP_HAS_GET
+                | JS_PROP_HAS_SET
+                | JS_PROP_HAS_VALUE;
+        desc.set(ValueLayout.JAVA_INT, JS_PROPERTY_DESCRIPTOR_FLAGS_OFFSET, flags);
+
+        MemorySegment valueSlice = desc.asSlice(JS_PROPERTY_DESCRIPTOR_VALUE_OFFSET, QuickJsNative.JS_VALUE_LAYOUT.byteSize());
+        MemorySegment.copy(value.value(), 0, valueSlice, 0, QuickJsNative.JS_VALUE_LAYOUT.byteSize());
+
+        MemorySegment getterSlice = desc.asSlice(JS_PROPERTY_DESCRIPTOR_GETTER_OFFSET, QuickJsNative.JS_VALUE_LAYOUT.byteSize());
+        MemorySegment setterSlice = desc.asSlice(JS_PROPERTY_DESCRIPTOR_SETTER_OFFSET, QuickJsNative.JS_VALUE_LAYOUT.byteSize());
+        getterSlice.fill((byte) 0);
+        setterSlice.fill((byte) 0);
     }
 
     private MemorySegment createFinalizerStub() {

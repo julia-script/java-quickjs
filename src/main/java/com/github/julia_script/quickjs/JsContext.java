@@ -36,6 +36,8 @@ public final class JsContext implements AutoCloseable {
     final MemorySegment contextPtr;
     private final Arena callbackArena;
     private final List<Object> callbackRegistrations = new ArrayList<>();
+    /** Keys in {@link #MODULE_INIT_CALLBACKS} registered by {@link #newCModule}; cleared on {@link #close()}. */
+    private final List<Long> moduleInitCallbackKeys = new ArrayList<>();
     private MemorySegment moduleInitCallbackStub;
     private boolean closed;
 
@@ -413,7 +415,9 @@ public final class JsContext implements AutoCloseable {
             if (modulePtr.equals(MemorySegment.NULL)) {
                 throw new IllegalStateException("JS_NewCModule returned null");
             }
-            MODULE_INIT_CALLBACKS.put(modulePtr.address(), new ModuleInitRegistration(nativeApi, initFunction));
+            long moduleKey = modulePtr.address();
+            MODULE_INIT_CALLBACKS.put(moduleKey, new ModuleInitRegistration(nativeApi, initFunction));
+            moduleInitCallbackKeys.add(moduleKey);
             return new JsModuleDef(nativeApi, modulePtr);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_NewCModule", throwable);
@@ -427,8 +431,14 @@ public final class JsContext implements AutoCloseable {
         }
         closed = true;
         try {
-            callbackRegistrations.clear();
+            // Free the QuickJS context while upcall stubs and HostFunctionRegistration refs must
+            // still be reachable (native may invoke or finalize callbacks during JS_FreeContext).
             nativeApi.freeContextHandle.invokeExact(contextPtr);
+            for (Long moduleKey : moduleInitCallbackKeys) {
+                MODULE_INIT_CALLBACKS.remove(moduleKey);
+            }
+            moduleInitCallbackKeys.clear();
+            callbackRegistrations.clear();
             if (callbackArena != null) {
                 callbackArena.close();
             }

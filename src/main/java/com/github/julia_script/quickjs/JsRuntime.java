@@ -562,13 +562,27 @@ public final class JsRuntime implements AutoCloseable {
 
         Throwable closeError = null;
         try {
+            // Explicitly unregister native callbacks before runtime teardown. Some QuickJS-ng
+            // builds keep hook pointers in runtime-internal paths that can survive long enough
+            // to affect subsequent runtimes in the same process if not nulled first.
+            if (nativeApi.setPromiseHookHandle != null) {
+                nativeApi.setPromiseHookHandle.invokeExact(runtimePtr, MemorySegment.NULL, MemorySegment.NULL);
+            }
+            if (nativeApi.setHostPromiseRejectionTrackerHandle != null) {
+                nativeApi.setHostPromiseRejectionTrackerHandle.invokeExact(runtimePtr, MemorySegment.NULL, MemorySegment.NULL);
+            }
+            if (nativeApi.setInterruptHandlerHandle != null) {
+                nativeApi.setInterruptHandlerHandle.invokeExact(runtimePtr, MemorySegment.NULL, MemorySegment.NULL);
+            }
             moduleNormalizeFunction = null;
             moduleLoaderFunction = null;
             interruptHandler = null;
             promiseHook = null;
             hostPromiseRejectionTracker = null;
-            runtimeFinalizers.clear();
+            // Keep runtimeFinalizers until after JS_FreeRuntime: native may invoke the registered
+            // finalizer stub during teardown (see runtimeFinalizerDispatch).
             nativeApi.freeRuntimeHandle.invokeExact(runtimePtr);
+            runtimeFinalizers.clear();
         } catch (Throwable throwable) {
             closeError = throwable;
         } finally {

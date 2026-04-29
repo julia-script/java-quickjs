@@ -1,6 +1,7 @@
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.api.publish.maven.MavenPublication
@@ -221,6 +222,12 @@ tasks.named("compileJava") {
 tasks.withType<Test>().configureEach {
     dependsOn(nativeBuildTasks.getValue(hostTarget))
     useJUnitPlatform()
+    if (providers.gradleProperty("debugTestOrder").isPresent) {
+        testLogging {
+            events(TestLogEvent.STARTED, TestLogEvent.FAILED, TestLogEvent.PASSED)
+            showStandardStreams = false
+        }
+    }
     // Native/FFM callbacks can leak cross-class state in a long-lived worker; isolate each
     // test class in CI to avoid cumulative heap corruption while root-cause debugging continues.
     if (providers.environmentVariable("CI").isPresent) {

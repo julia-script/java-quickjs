@@ -1460,7 +1460,7 @@ public final class JsValue implements AutoCloseable {
 
     public void setPropertyAtom(int atom, JsValue val) {
         try {
-            int ret = (int) nativeApi.setPropertyHandle.invokeExact(contextPtr, value, atom, val.value);
+            int ret = (int) nativeApi.setPropertyHandle.invokeExact(contextPtr, value, atom, dupForNativeOwnershipTransfer(val));
             if (ret < 0) {
                 throw new IllegalStateException("JS_SetProperty failed");
             }
@@ -1488,7 +1488,11 @@ public final class JsValue implements AutoCloseable {
     public void setPropertyStr(String name, JsValue val) {
         try {
             MemorySegment cName = nativeApi.arena.allocateFrom(name);
-            int ret = (int) nativeApi.setPropertyStrHandle.invokeExact(contextPtr, value, cName, val.value);
+            int ret = (int) nativeApi.setPropertyStrHandle.invokeExact(
+                    contextPtr,
+                    value,
+                    cName,
+                    dupForNativeOwnershipTransfer(val));
             if (ret < 0) {
                 throw new IllegalStateException("JS_SetPropertyStr failed");
             }
@@ -1499,7 +1503,11 @@ public final class JsValue implements AutoCloseable {
 
     public void setPropertyUint32(int index, JsValue val) {
         try {
-            int ret = (int) nativeApi.setPropertyUint32Handle.invokeExact(contextPtr, value, index, val.value);
+            int ret = (int) nativeApi.setPropertyUint32Handle.invokeExact(
+                    contextPtr,
+                    value,
+                    index,
+                    dupForNativeOwnershipTransfer(val));
             if (ret < 0) {
                 throw new IllegalStateException("JS_SetPropertyUint32 failed");
             }
@@ -1510,7 +1518,11 @@ public final class JsValue implements AutoCloseable {
 
     public void setPropertyInt64(long index, JsValue val) {
         try {
-            int ret = (int) nativeApi.setPropertyInt64Handle.invokeExact(contextPtr, value, index, val.value);
+            int ret = (int) nativeApi.setPropertyInt64Handle.invokeExact(
+                    contextPtr,
+                    value,
+                    index,
+                    dupForNativeOwnershipTransfer(val));
             if (ret < 0) {
                 throw new IllegalStateException("JS_SetPropertyInt64 failed");
             }
@@ -1812,7 +1824,12 @@ public final class JsValue implements AutoCloseable {
 
     public boolean definePropertyValue(int atom, JsValue val, int flags) {
         try {
-            int ret = (int) nativeApi.definePropertyValueHandle.invokeExact(contextPtr, value, atom, val.value, flags);
+            int ret = (int) nativeApi.definePropertyValueHandle.invokeExact(
+                    contextPtr,
+                    value,
+                    atom,
+                    dupForNativeOwnershipTransfer(val),
+                    flags);
             if (ret < 0) {
                 throw new IllegalStateException("JS_DefinePropertyValue failed");
             }
@@ -1824,7 +1841,11 @@ public final class JsValue implements AutoCloseable {
 
     public boolean definePropertyValueUint32(int index, JsValue val, int flags) {
         try {
-            int ret = (int) nativeApi.definePropertyValueUint32Handle.invokeExact(contextPtr, value, index, val.value,
+            int ret = (int) nativeApi.definePropertyValueUint32Handle.invokeExact(
+                    contextPtr,
+                    value,
+                    index,
+                    dupForNativeOwnershipTransfer(val),
                     flags);
             if (ret < 0) {
                 throw new IllegalStateException("JS_DefinePropertyValueUint32 failed");
@@ -1838,7 +1859,11 @@ public final class JsValue implements AutoCloseable {
     public boolean definePropertyValueStr(String name, JsValue val, int flags) {
         try {
             MemorySegment cName = nativeApi.arena.allocateFrom(name);
-            int ret = (int) nativeApi.definePropertyValueStrHandle.invokeExact(contextPtr, value, cName, val.value,
+            int ret = (int) nativeApi.definePropertyValueStrHandle.invokeExact(
+                    contextPtr,
+                    value,
+                    cName,
+                    dupForNativeOwnershipTransfer(val),
                     flags);
             if (ret < 0) {
                 throw new IllegalStateException("JS_DefinePropertyValueStr failed");
@@ -1855,8 +1880,8 @@ public final class JsValue implements AutoCloseable {
                     contextPtr,
                     value,
                     atom,
-                    getter.value,
-                    setter.value,
+                    dupForNativeOwnershipTransfer(getter),
+                    dupForNativeOwnershipTransfer(setter),
                     flags);
             if (ret < 0) {
                 throw new IllegalStateException("JS_DefinePropertyGetSet failed");
@@ -2292,6 +2317,18 @@ public final class JsValue implements AutoCloseable {
                     contextPtr,
                     value);
             return new JsValue(nativeApi, contextPtr, duplicated);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_DupValue", throwable);
+        }
+    }
+
+    private MemorySegment dupForNativeOwnershipTransfer(JsValue value) {
+        requireSupported(nativeApi.dupValueHandle, "JS_DupValue");
+        try {
+            return (MemorySegment) nativeApi.dupValueHandle.invokeExact(
+                    (SegmentAllocator) nativeApi.arena,
+                    contextPtr,
+                    value.value);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_DupValue", throwable);
         }

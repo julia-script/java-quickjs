@@ -85,10 +85,8 @@ class JsValuePromiseExceptionAtomClassTest extends QuickJsIntegrationTestBase {
         int classId = runtime.newClassId();
         AtomicInteger getOwnPropertyCount = new AtomicInteger();
 
-        try (Atom answer = Atom.ofString(context, "answer");
-                Atom answerHeld = answer.dup()) {
+        try (Atom answer = Atom.ofString(context, "answer"); Atom answerHeld = answer.dup()) {
             final int answerAtomId = answerHeld.value();
-
             ClassDef classDef = ClassDef.allocate(runtime);
             classDef.setClassName("ExoticFromJava");
             classDef.setExotic(new ClassDef.ExoticMethods(

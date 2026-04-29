@@ -117,7 +117,6 @@ class JsRuntimeApiTest {
             runtime.executePendingJob();
             guard++;
         }
-
         assertThat(promiseHookCalls.get()).isGreaterThan(0);
         assertThat(rejectionTrackerCalled.get()).isTrue();
     }

@@ -92,7 +92,7 @@ class JsValuePromiseExceptionAtomClassTest extends QuickJsIntegrationTestBase {
             classDef.setExotic(new ClassDef.ExoticMethods(
                     (callbackContext, descriptor, object, atom) -> {
                         getOwnPropertyCount.incrementAndGet();
-                        if (atom != answerAtomId) {
+                        if (atom.value() != answerAtomId) {
                             return 0;
                         }
                         if (!descriptor.equals(java.lang.foreign.MemorySegment.NULL)) {

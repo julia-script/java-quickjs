@@ -174,7 +174,7 @@ public final class ClassDef {
     public static final class ExoticMethods {
         @FunctionalInterface
         public interface GetOwnProperty {
-            int apply(JsContext context, MemorySegment descriptor, JsValue object, int propertyAtom);
+            int apply(JsContext context, MemorySegment descriptor, JsValue object, Atom propertyAtom);
         }
 
         @FunctionalInterface
@@ -184,7 +184,7 @@ public final class ClassDef {
 
         @FunctionalInterface
         public interface DeleteProperty {
-            int apply(JsContext context, JsValue object, int propertyAtom);
+            int apply(JsContext context, JsValue object, Atom propertyAtom);
         }
 
         @FunctionalInterface
@@ -192,7 +192,7 @@ public final class ClassDef {
             int apply(
                     JsContext context,
                     JsValue object,
-                    int propertyAtom,
+                    Atom propertyAtom,
                     JsValue value,
                     JsValue getter,
                     JsValue setter,
@@ -201,17 +201,17 @@ public final class ClassDef {
 
         @FunctionalInterface
         public interface HasProperty {
-            int apply(JsContext context, JsValue object, int atom);
+            int apply(JsContext context, JsValue object, Atom atom);
         }
 
         @FunctionalInterface
         public interface GetProperty {
-            JsValue apply(JsContext context, JsValue object, int atom, JsValue receiver);
+            JsValue apply(JsContext context, JsValue object, Atom atom, JsValue receiver);
         }
 
         @FunctionalInterface
         public interface SetProperty {
-            int apply(JsContext context, JsValue object, int atom, JsValue value, JsValue receiver, int flags);
+            int apply(JsContext context, JsValue object, Atom atom, JsValue value, JsValue receiver, int flags);
         }
 
         private final GetOwnProperty getOwnProperty;
@@ -593,11 +593,14 @@ public final class ClassDef {
         if (exoticMethods == null || exoticMethods.getOwnProperty == null) {
             return 0;
         }
-        return exoticMethods.getOwnProperty.apply(
-                new JsContext(nativeApi, callbackContext, false),
-                descriptor,
-                new JsValue(nativeApi, callbackContext, object),
-                propertyAtom);
+        JsContext context = new JsContext(nativeApi, callbackContext, false);
+        try (Atom atom = Atom.ofValue(context, propertyAtom)) {
+            return exoticMethods.getOwnProperty.apply(
+                    context,
+                    descriptor,
+                    new JsValue(nativeApi, callbackContext, object),
+                    atom);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -618,10 +621,13 @@ public final class ClassDef {
         if (exoticMethods == null || exoticMethods.deleteProperty == null) {
             return 0;
         }
-        return exoticMethods.deleteProperty.apply(
-                new JsContext(nativeApi, callbackContext, false),
-                new JsValue(nativeApi, callbackContext, object),
-                propertyAtom);
+        JsContext context = new JsContext(nativeApi, callbackContext, false);
+        try (Atom atom = Atom.ofValue(context, propertyAtom)) {
+            return exoticMethods.deleteProperty.apply(
+                    context,
+                    new JsValue(nativeApi, callbackContext, object),
+                    atom);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -636,14 +642,17 @@ public final class ClassDef {
         if (exoticMethods == null || exoticMethods.defineOwnProperty == null) {
             return 0;
         }
-        return exoticMethods.defineOwnProperty.apply(
-                new JsContext(nativeApi, callbackContext, false),
-                new JsValue(nativeApi, callbackContext, object),
-                propertyAtom,
-                new JsValue(nativeApi, callbackContext, value),
-                new JsValue(nativeApi, callbackContext, getter),
-                new JsValue(nativeApi, callbackContext, setter),
-                flags);
+        JsContext context = new JsContext(nativeApi, callbackContext, false);
+        try (Atom atom = Atom.ofValue(context, propertyAtom)) {
+            return exoticMethods.defineOwnProperty.apply(
+                    context,
+                    new JsValue(nativeApi, callbackContext, object),
+                    atom,
+                    new JsValue(nativeApi, callbackContext, value),
+                    new JsValue(nativeApi, callbackContext, getter),
+                    new JsValue(nativeApi, callbackContext, setter),
+                    flags);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -651,10 +660,13 @@ public final class ClassDef {
         if (exoticMethods == null || exoticMethods.hasProperty == null) {
             return 0;
         }
-        return exoticMethods.hasProperty.apply(
-                new JsContext(nativeApi, callbackContext, false),
-                new JsValue(nativeApi, callbackContext, object),
-                atom);
+        JsContext context = new JsContext(nativeApi, callbackContext, false);
+        try (Atom propertyAtom = Atom.ofValue(context, atom)) {
+            return exoticMethods.hasProperty.apply(
+                    context,
+                    new JsValue(nativeApi, callbackContext, object),
+                    propertyAtom);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -663,15 +675,18 @@ public final class ClassDef {
         if (exoticMethods == null || exoticMethods.getProperty == null) {
             throw new IllegalStateException("Exotic get_property callback is not configured");
         }
-        JsValue result = exoticMethods.getProperty.apply(
-                new JsContext(nativeApi, callbackContext, false),
-                new JsValue(nativeApi, callbackContext, object),
-                atom,
-                new JsValue(nativeApi, callbackContext, receiver));
-        if (result == null) {
-            throw new IllegalStateException("Exotic get_property callback returned null");
+        JsContext context = new JsContext(nativeApi, callbackContext, false);
+        try (Atom propertyAtom = Atom.ofValue(context, atom)) {
+            JsValue result = exoticMethods.getProperty.apply(
+                    context,
+                    new JsValue(nativeApi, callbackContext, object),
+                    propertyAtom,
+                    new JsValue(nativeApi, callbackContext, receiver));
+            if (result == null) {
+                throw new IllegalStateException("Exotic get_property callback returned null");
+            }
+            return result.value();
         }
-        return result.value();
     }
 
     @SuppressWarnings("unused")
@@ -685,13 +700,16 @@ public final class ClassDef {
         if (exoticMethods == null || exoticMethods.setProperty == null) {
             return 0;
         }
-        return exoticMethods.setProperty.apply(
-                new JsContext(nativeApi, callbackContext, false),
-                new JsValue(nativeApi, callbackContext, object),
-                atom,
-                new JsValue(nativeApi, callbackContext, value),
-                new JsValue(nativeApi, callbackContext, receiver),
-                flags);
+        JsContext context = new JsContext(nativeApi, callbackContext, false);
+        try (Atom propertyAtom = Atom.ofValue(context, atom)) {
+            return exoticMethods.setProperty.apply(
+                    context,
+                    new JsValue(nativeApi, callbackContext, object),
+                    propertyAtom,
+                    new JsValue(nativeApi, callbackContext, value),
+                    new JsValue(nativeApi, callbackContext, receiver),
+                    flags);
+        }
     }
 
     private JsRuntime resolveRuntime(MemorySegment callbackRuntime) {

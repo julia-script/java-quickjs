@@ -46,6 +46,21 @@ public final class Atom implements AutoCloseable {
         }
     }
 
+    /**
+     * Creates an owned atom from an existing native atom id.
+     *
+     * <p>The returned {@link Atom} duplicates {@code atomValue} via {@code JS_DupAtom}, so callers
+     * can safely close it without depending on the original owner's lifetime.
+     */
+    public static Atom ofValue(JsContext context, int atomValue) {
+        try {
+            int dupValue = (int) context.nativeApi.dupAtomHandle.invokeExact(context.contextPtr, atomValue);
+            return new Atom(context.nativeApi, context.contextPtr, dupValue);
+        } catch (Throwable throwable) {
+            throw new IllegalStateException("Failed to call JS_DupAtom", throwable);
+        }
+    }
+
     public Atom dup() {
         ensureOpen();
         try {

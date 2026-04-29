@@ -1,0 +1,25 @@
+# Linux tests with a persistent Gradle cache (fast reruns).
+#
+#   DOCKER_BUILDKIT=1 docker compose run --rm linux-test
+#
+# One-off full suite like CI (fork per class when CI=true is set in workflow):
+#   DOCKER_BUILDKIT=1 docker compose run --rm -e CI=true linux-test
+#
+services:
+  linux-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: linux-tools
+    platform: linux/amd64
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - javaquickjs-gradle:/root/.gradle
+    environment:
+      # Pass through when set (e.g. CI=true reproduces GitHub Actions fork settings).
+      - CI
+    command: ["./gradlew", "--no-daemon", "test", "-PhostNativeTarget=linux-x86_64"]
+
+volumes:
+  javaquickjs-gradle:

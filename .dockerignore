@@ -1,0 +1,9 @@
+# Keep build context small; mount the repo at run time for fast iteration.
+.gradle/
+build/
+bin/
+*.log
+.git/
+.cursor/
+.history/
+.llms/

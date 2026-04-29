@@ -12,6 +12,15 @@ import java.util.Optional;
 
 public final class JsValue implements AutoCloseable {
     private static final long JS_VALUE_SIZE = QuickJsNative.JS_VALUE_LAYOUT.byteSize();
+    private static final MethodHandle CFUNCTION_DISPATCH_HANDLE = bindDispatch(
+            "cFunctionDispatch",
+            MethodType.methodType(
+                    MemorySegment.class,
+                    HostFunctionRegistration.class,
+                    MemorySegment.class,
+                    MemorySegment.class,
+                    int.class,
+                    MemorySegment.class));
     private static final MethodHandle CFUNCTION_MAGIC_DISPATCH_HANDLE = bindDispatch(
             "cFunctionMagicDispatch",
             MethodType.methodType(
@@ -653,16 +662,25 @@ public final class JsValue implements AutoCloseable {
             int magic) {
         requireSupported(context.nativeApi.newCFunction2Handle, "JS_NewCFunction2");
         HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, 0);
-        MethodHandle dispatch = CFUNCTION_MAGIC_DISPATCH_HANDLE.bindTo(registration);
+        boolean usesMagic = usesMagicCallback(cproto);
+        MethodHandle dispatch = (usesMagic ? CFUNCTION_MAGIC_DISPATCH_HANDLE : CFUNCTION_DISPATCH_HANDLE)
+                .bindTo(registration);
         MemorySegment callbackStub = context.createUpcallStub(
                 dispatch,
-                FunctionDescriptor.of(
-                        QuickJsNative.JS_VALUE_LAYOUT,
-                        ValueLayout.ADDRESS,
-                        QuickJsNative.JS_VALUE_LAYOUT,
-                        ValueLayout.JAVA_INT,
-                        ValueLayout.ADDRESS,
-                        ValueLayout.JAVA_INT));
+                usesMagic
+                        ? FunctionDescriptor.of(
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.ADDRESS,
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_INT)
+                        : FunctionDescriptor.of(
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.ADDRESS,
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS));
         context.retainCallbackRegistration(registration);
         MemorySegment nameC = context.nativeApi.arena.allocateFrom(name);
         try {
@@ -708,16 +726,25 @@ public final class JsValue implements AutoCloseable {
             JsValue protoValue) {
         requireSupported(context.nativeApi.newCFunction3Handle, "JS_NewCFunction3");
         HostFunctionRegistration registration = new HostFunctionRegistration(context.nativeApi, callback, null, 0);
-        MethodHandle dispatch = CFUNCTION_MAGIC_DISPATCH_HANDLE.bindTo(registration);
+        boolean usesMagic = usesMagicCallback(cproto);
+        MethodHandle dispatch = (usesMagic ? CFUNCTION_MAGIC_DISPATCH_HANDLE : CFUNCTION_DISPATCH_HANDLE)
+                .bindTo(registration);
         MemorySegment callbackStub = context.createUpcallStub(
                 dispatch,
-                FunctionDescriptor.of(
-                        QuickJsNative.JS_VALUE_LAYOUT,
-                        ValueLayout.ADDRESS,
-                        QuickJsNative.JS_VALUE_LAYOUT,
-                        ValueLayout.JAVA_INT,
-                        ValueLayout.ADDRESS,
-                        ValueLayout.JAVA_INT));
+                usesMagic
+                        ? FunctionDescriptor.of(
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.ADDRESS,
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_INT)
+                        : FunctionDescriptor.of(
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.ADDRESS,
+                                QuickJsNative.JS_VALUE_LAYOUT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS));
         context.retainCallbackRegistration(registration);
         MemorySegment nameC = context.nativeApi.arena.allocateFrom(name);
         try {
@@ -2090,6 +2117,24 @@ public final class JsValue implements AutoCloseable {
     }
 
     @SuppressWarnings("unused")
+    private static MemorySegment cFunctionDispatch(
+            HostFunctionRegistration registration,
+            MemorySegment callbackContext,
+            MemorySegment callbackThis,
+            int argc,
+            MemorySegment callbackArgv) {
+        return invokeHostFunctionCallback(
+                registration,
+                callbackContext,
+                callbackThis,
+                argc,
+                callbackArgv,
+                null,
+                MemorySegment.NULL,
+                MemorySegment.NULL);
+    }
+
+    @SuppressWarnings("unused")
     private static MemorySegment cFunctionMagicDispatch(
             HostFunctionRegistration registration,
             MemorySegment callbackContext,
@@ -2146,6 +2191,14 @@ public final class JsValue implements AutoCloseable {
                 magic,
                 MemorySegment.NULL,
                 callbackOpaque);
+    }
+
+    private static boolean usesMagicCallback(HostFunctionType cproto) {
+        return cproto == HostFunctionType.GENERIC_MAGIC
+                || cproto == HostFunctionType.CONSTRUCTOR_MAGIC
+                || cproto == HostFunctionType.CONSTRUCTOR_OR_FUNC_MAGIC
+                || cproto == HostFunctionType.GETTER_MAGIC
+                || cproto == HostFunctionType.SETTER_MAGIC;
     }
 
     @SuppressWarnings("unused")

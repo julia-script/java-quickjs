@@ -184,7 +184,7 @@ public final class JsRuntime implements AutoCloseable {
      * {@link ClassDef} struct layout, C strings, and upcall stubs registered with QuickJS must stay valid
      * until after {@code JS_FreeRuntime} returns.
      */
-    final Arena classCallbackArena = Arena.ofShared();
+    final Arena classCallbackArena = Arena.ofConfined();
     private MemorySegment moduleNormalizeStub = MemorySegment.NULL;
     private MemorySegment moduleLoaderStub = MemorySegment.NULL;
     private MemorySegment interruptHandlerStub = MemorySegment.NULL;
@@ -197,6 +197,11 @@ public final class JsRuntime implements AutoCloseable {
     private PromiseHook promiseHook;
     private HostPromiseRejectionTracker hostPromiseRejectionTracker;
     private final List<RuntimeFinalizer> runtimeFinalizers = new ArrayList<>();
+    /**
+     * Strong references to {@link ClassDef} instances passed to {@link #newClass(int, ClassDef)} so native
+     * upcall stubs bound to them cannot outlive the Java receiver due to GC.
+     */
+    private final List<ClassDef> registeredClassDefs = new ArrayList<>();
     private boolean closed;
 
     public JsRuntime() {
@@ -266,6 +271,7 @@ public final class JsRuntime implements AutoCloseable {
             if (ret != 0) {
                 throw new IllegalStateException("JS_NewClass failed");
             }
+            registeredClassDefs.add(classDef);
         } catch (Throwable throwable) {
             throw new IllegalStateException("Failed to call JS_NewClass", throwable);
         }
@@ -567,6 +573,7 @@ public final class JsRuntime implements AutoCloseable {
             closeError = throwable;
         } finally {
             classCallbackArena.close();
+            registeredClassDefs.clear();
             nativeApi.closeArena();
         }
 

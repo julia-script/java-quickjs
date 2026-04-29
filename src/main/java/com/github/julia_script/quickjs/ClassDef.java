@@ -393,8 +393,14 @@ public final class ClassDef {
 
         MemorySegment getterSlice = desc.asSlice(JS_PROPERTY_DESCRIPTOR_GETTER_OFFSET, QuickJsNative.JS_VALUE_LAYOUT.byteSize());
         MemorySegment setterSlice = desc.asSlice(JS_PROPERTY_DESCRIPTOR_SETTER_OFFSET, QuickJsNative.JS_VALUE_LAYOUT.byteSize());
-        getterSlice.fill((byte) 0);
-        setterSlice.fill((byte) 0);
+        // Match QuickJS (e.g. JS_GetOwnPropertyInternal): use JS_UNDEFINED, not all-zero bits (which encode JS_TAG_INT).
+        writeJsUndefined(getterSlice);
+        writeJsUndefined(setterSlice);
+    }
+
+    private static void writeJsUndefined(MemorySegment slot) {
+        slot.set(ValueLayout.JAVA_LONG, 0, 0L);
+        slot.set(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG.byteSize(), JsValue.Tag.UNDEFINED);
     }
 
     private MemorySegment createFinalizerStub() {

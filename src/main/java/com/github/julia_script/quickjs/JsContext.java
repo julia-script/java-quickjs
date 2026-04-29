@@ -46,7 +46,7 @@ public final class JsContext implements AutoCloseable {
     JsContext(QuickJsNative nativeApi, MemorySegment contextPtr, boolean withCallbackArena) {
         this.nativeApi = nativeApi;
         this.contextPtr = contextPtr;
-        this.callbackArena = withCallbackArena ? Arena.ofShared() : null;
+        this.callbackArena = withCallbackArena ? Arena.ofConfined() : null;
         this.moduleInitCallbackStub = MemorySegment.NULL;
     }
 
@@ -226,23 +226,23 @@ public final class JsContext implements AutoCloseable {
     }
 
     public JsValue throwTypeError(String message) {
-        return throwFormatted(nativeApi.throwTypeErrorHandle, message, "JS_ThrowTypeError");
+        return throwErrorViaConstructor("TypeError", message);
     }
 
     public JsValue throwSyntaxError(String message) {
-        return throwFormatted(nativeApi.throwSyntaxErrorHandle, message, "JS_ThrowSyntaxError");
+        return throwErrorViaConstructor("SyntaxError", message);
     }
 
     public JsValue throwReferenceError(String message) {
-        return throwFormatted(nativeApi.throwReferenceErrorHandle, message, "JS_ThrowReferenceError");
+        return throwErrorViaConstructor("ReferenceError", message);
     }
 
     public JsValue throwRangeError(String message) {
-        return throwFormatted(nativeApi.throwRangeErrorHandle, message, "JS_ThrowRangeError");
+        return throwErrorViaConstructor("RangeError", message);
     }
 
     public JsValue throwInternalError(String message) {
-        return throwFormatted(nativeApi.throwInternalErrorHandle, message, "JS_ThrowInternalError");
+        return throwErrorViaConstructor("InternalError", message);
     }
 
     public void setClassProto(int classId, JsValue proto) {
@@ -443,17 +443,32 @@ public final class JsContext implements AutoCloseable {
         }
     }
 
-    private JsValue throwFormatted(java.lang.invoke.MethodHandle handle, String message, String name) {
+    private JsValue throwErrorViaConstructor(String constructorName, String message) {
         ensureOpen();
-        MemorySegment fmt = nativeApi.arena.allocateFrom(message);
+        JsValue created = null;
         try {
-            MemorySegment result = (MemorySegment) handle.invokeExact(
-                    (SegmentAllocator) nativeApi.arena,
-                    contextPtr,
-                    fmt);
-            return new JsValue(nativeApi, contextPtr, result);
+            try (JsValue global = getGlobalObject();
+                    JsValue constructor = global.getPropertyStr(constructorName);
+                    JsValue messageValue = JsValue.newString(this, message)) {
+                created = constructor.callConstructor(new JsValue[] { messageValue });
+                if (created.isException()) {
+                    return created;
+                }
+
+                // JS_Throw takes ownership of the provided exception object.
+                MemorySegment thrown = (MemorySegment) nativeApi.throwHandle.invokeExact(
+                        (SegmentAllocator) nativeApi.arena,
+                        contextPtr,
+                        created.value());
+                created = null;
+                return new JsValue(nativeApi, contextPtr, thrown);
+            }
         } catch (Throwable throwable) {
-            throw new IllegalStateException("Failed to call " + name, throwable);
+            throw new IllegalStateException("Failed to throw " + constructorName, throwable);
+        } finally {
+            if (created != null) {
+                created.close();
+            }
         }
     }
 

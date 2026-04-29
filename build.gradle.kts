@@ -218,10 +218,17 @@ tasks.named("compileJava") {
     dependsOn(nativeBuildTasks.getValue(hostTarget))
 }
 
-tasks.named<Test>("test") {
+tasks.withType<Test>().configureEach {
     dependsOn(nativeBuildTasks.getValue(hostTarget))
     useJUnitPlatform()
-    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Dquickjs.native.target=$hostTargetId")
+    jvmArgs(
+        "--enable-native-access=ALL-UNNAMED",
+        "-Dquickjs.native.target=$hostTargetId",
+        // Temurin 22 + Panama: rare SIGSEGV in ServiceThread (ResolvedMethodTable::grow, G1BarrierSet).
+        // Serial GC avoids G1 write barriers in that stack; C1-only tiering reduces MH/C2 churn.
+        "-XX:+UseSerialGC",
+        "-XX:TieredStopAtLevel=1",
+    )
 }
 
 publishing {
